@@ -1,9 +1,7 @@
 """Tests for ctpelvimetry.pipeline."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-import numpy as np
-import pytest
 
 from ctpelvimetry.pipeline import run_combined_pelvimetry
 

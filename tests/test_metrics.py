@@ -1,7 +1,6 @@
 """Tests for ctpelvimetry.metrics."""
 
 import numpy as np
-import pytest
 
 from ctpelvimetry.metrics import (
     calculate_sacral_depth,

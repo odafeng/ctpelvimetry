@@ -1,9 +1,7 @@
 """Tests for ctpelvimetry.segmentation."""
 
-import os
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from ctpelvimetry.segmentation import setup_license, run_totalsegmentator
 

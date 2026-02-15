@@ -110,7 +110,10 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
     try:
         mid_x = compute_midline_x(hip_L, hip_R)
         if mid_x is not None:
-            print(f"      ✅ Midline X: {mid_x:.1f} voxel, slab ± {slab_half_voxels} voxels (± {slab_half_voxels * sx:.1f} mm)")
+            print(
+                f"      ✅ Midline X: {mid_x:.1f} voxel, "
+                f"slab ± {slab_half_voxels} voxels (± {slab_half_voxels * sx:.1f} mm)"
+            )
         else:
             print("      ⚠️ Midline X computation failed")
     except Exception as e:
@@ -154,7 +157,10 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
                 if vert_S1 is None:
                     print("      ⚠️ vertebrae_S1.nii.gz not found, using sacrum only")
                 else:
-                    print(f"      ⚠️ vertebrae_S1 shape mismatch ({vert_S1.shape} vs {sacrum.shape}), using sacrum only")
+                    print(
+                        f"      ⚠️ vertebrae_S1 shape mismatch "
+                        f"({vert_S1.shape} vs {sacrum.shape}), using sacrum only"
+                    )
 
             sacral = find_sacral_landmarks(
                 sacrum_for_prom, mid_x=mid_x, slab_half_voxels=slab_half_voxels

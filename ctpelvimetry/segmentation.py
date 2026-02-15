@@ -168,7 +168,8 @@ def run_totalsegmentator(
                 )
                 if not tissue_ok:
                     print(
-                        "      ⚠️ Tissue Types: Requires license (https://backend.totalsegmentator.com/license-academic/)"
+                        "      ⚠️ Tissue Types: Requires license "
+                        "(https://backend.totalsegmentator.com/license-academic/)"
                     )
             except Exception:
                 print("      ⚠️ Tissue Types skipped (Optional, requires additional license)")

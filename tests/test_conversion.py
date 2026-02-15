@@ -1,9 +1,7 @@
 """Tests for ctpelvimetry.conversion."""
 
-import os
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from ctpelvimetry.conversion import convert_dicom_to_nifti
 

@@ -7,8 +7,8 @@ import os
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.gridspec as gridspec  # noqa: E402
 
 
 # ------------------------------------------------------------------
@@ -379,8 +379,11 @@ def generate_body_composition_qc(
     for level_name, slice_idx, row in levels:
         if slice_idx is None or slice_idx < 0 or slice_idx >= ct_vol.shape[2]:
             for col in range(3):
-                axes[row, col].text(0.5, 0.5, f"{level_name} slice not available",
-                                   ha='center', va='center', transform=axes[row, col].transAxes)
+                axes[row, col].text(
+                    0.5, 0.5, f"{level_name} slice not available",
+                    ha='center', va='center',
+                    transform=axes[row, col].transAxes,
+                )
                 axes[row, col].axis('off')
             continue
 

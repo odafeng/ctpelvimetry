@@ -1,8 +1,6 @@
 """Tests for ctpelvimetry.io."""
 
 import numpy as np
-import nibabel as nib
-import pytest
 
 from ctpelvimetry.io import load_mask, load_nifti_canonical, load_mask_canonical, voxel_to_world_ras
 from conftest import _save_nifti

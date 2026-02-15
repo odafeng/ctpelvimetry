@@ -127,7 +127,7 @@ def run_pelvimetry_batch(
             n_miss = df[m].isna().sum()
             if n_miss > 0:
                 if not has_missing:
-                    print(f"\n  Missing metrics:")
+                    print("\n  Missing metrics:")
                     has_missing = True
                 print(f"    {m:30s} {n_miss:3d}/{n_total} ({100*n_miss/n_total:.0f}%)")
 
@@ -140,7 +140,7 @@ def run_pelvimetry_batch(
                 if code:
                     codes[code] += 1
         if codes:
-            print(f"\n  Top error codes:")
+            print("\n  Top error codes:")
             for code, count in codes.most_common(10):
                 print(f"    {code:45s} {count:3d}")
     print(f"{'='*50}\n")

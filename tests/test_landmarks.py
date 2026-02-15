@@ -1,7 +1,6 @@
 """Tests for ctpelvimetry.landmarks."""
 
 import numpy as np
-import pytest
 
 from ctpelvimetry.landmarks import (
     compute_midline_x,

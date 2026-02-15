@@ -18,7 +18,7 @@ from .landmarks import _voxels_in_xslab
 # ------------------------------------------------------------------
 
 def calculate_sacral_depth(sacrum, promontory, apex, affine,
-                            mid_x=None, slab_half_voxels=None):
+                           mid_x=None, slab_half_voxels=None):
     """Calculate sacral depth (anterior concavity).
 
     Sacral depth is the maximum perpendicular distance from the

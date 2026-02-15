@@ -108,4 +108,3 @@ def voxel_to_world_ras(pt_ijk, affine):
         return None
     pt_ijk = np.array(pt_ijk, dtype=float)
     return nib.affines.apply_affine(affine, pt_ijk)
-

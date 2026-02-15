@@ -9,5 +9,6 @@ Public API:
 
 __version__ = "6.2.0"
 
-from .pipeline import run_combined_pelvimetry, run_full_pipeline
-from .body_composition import process_single_patient
+from .pipeline import run_combined_pelvimetry as run_combined_pelvimetry  # noqa: F401
+from .pipeline import run_full_pipeline as run_full_pipeline  # noqa: F401
+from .body_composition import process_single_patient as process_single_patient  # noqa: F401

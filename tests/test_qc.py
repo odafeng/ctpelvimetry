@@ -3,7 +3,6 @@
 import os
 
 import numpy as np
-import pytest
 
 from ctpelvimetry.qc import (
     save_sagittal_combined_qc_figure,

@@ -1,6 +1,5 @@
 """Tests for ctpelvimetry.body_composition."""
 
-import os
 
 import numpy as np
 import nibabel as nib
