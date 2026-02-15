@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ctpelvimetry"
+version = "6.2.0"
+description = "Automated pelvimetry and body composition analysis from CT segmentations"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+dependencies = [
+    "numpy>=1.24",
+    "nibabel>=5.0",
+    "pandas>=2.0",
+    "scipy>=1.11",
+    "matplotlib>=3.7",
+    "tqdm>=4.60",
+]
+
+[project.scripts]
+ctpelvimetry = "ctpelvimetry.cli:main"
+
+[project.optional-dependencies]
+seg = ["TotalSegmentator>=2.0"]
+
+[tool.setuptools.packages.find]
+include = ["ctpelvimetry*"]
