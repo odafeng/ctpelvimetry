@@ -7,7 +7,7 @@ Public API:
     process_single_patient    — body composition for one patient
 """
 
-__version__ = "6.2.0"
+__version__ = "1.0.0"
 
 from .pipeline import run_combined_pelvimetry as run_combined_pelvimetry  # noqa: F401
 from .pipeline import run_full_pipeline as run_full_pipeline  # noqa: F401

@@ -7,7 +7,7 @@ Thank you for considering contributing to **ctpelvimetry**! Here's how you can h
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/your-username/ctpelvimetry.git
+   git clone https://github.com/odafeng/ctpelvimetry.git
    cd ctpelvimetry
    ```
 3. Install in development mode:

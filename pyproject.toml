@@ -4,10 +4,28 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ctpelvimetry"
-version = "6.2.0"
+version = "1.0.0"
 description = "Automated pelvimetry and body composition analysis from CT segmentations"
-requires-python = ">=3.9"
+readme = "README.md"
+requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
+authors = [
+    {name = "Shih-Feng Huang", email = "odafeng@hotmail.com"},
+]
+keywords = ["pelvimetry", "CT", "body-composition", "medical-imaging", "TotalSegmentator"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Healthcare Industry",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
 dependencies = [
     "numpy>=1.24",
     "nibabel>=5.0",
@@ -17,11 +35,18 @@ dependencies = [
     "tqdm>=4.60",
 ]
 
+[project.urls]
+Homepage = "https://github.com/odafeng/ctpelvimetry"
+Repository = "https://github.com/odafeng/ctpelvimetry"
+Issues = "https://github.com/odafeng/ctpelvimetry/issues"
+Changelog = "https://github.com/odafeng/ctpelvimetry/blob/main/CHANGELOG.md"
+
 [project.scripts]
 ctpelvimetry = "ctpelvimetry.cli:main"
 
 [project.optional-dependencies]
 seg = ["TotalSegmentator>=2.0"]
+dev = ["pytest>=8.0", "ruff", "mypy", "flake8"]
 
 [tool.setuptools.packages.find]
 include = ["ctpelvimetry*"]

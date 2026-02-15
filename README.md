@@ -59,17 +59,15 @@ ctpelvimetry/
 ## Installation
 
 ```bash
-cd Package
+# Basic install (analyse existing segmentations)
+pip install ctpelvimetry
 
-# 基本安裝（分析既有 segmentation）
-pip install -e .
-
-# 完整安裝（含 TotalSegmentator segmentation 功能）
-pip install -e ".[seg]"
+# Full install (includes TotalSegmentator for segmentation)
+pip install "ctpelvimetry[seg]"
 ```
 
-> **Note:** 完整安裝會一併安裝 TotalSegmentator 及其 PyTorch 依賴，
-> 若只需使用已產生的 segmentation 進行分析，基本安裝即可。
+> **Note:** The full install pulls in TotalSegmentator and its PyTorch dependencies.
+> If you only need to analyse pre-existing segmentations, the basic install is sufficient.
 
 ### Dependencies
 
