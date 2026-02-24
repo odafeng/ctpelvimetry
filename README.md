@@ -54,7 +54,11 @@ Measured at L3 vertebral level and ISD (mid-pelvis) level.
 - **QC figures** — sagittal combined, extended 3-panel, and body composition overlays
 - **Modular design** — use the full pipeline or individual analysis functions
 
-<!-- TODO: Add QC figure examples, e.g.: ![QC Example](docs/images/qc_example.png) -->
+### QC Output Example
+
+![QC Example — Sagittal pelvimetry with automated landmark detection](docs/images/qc_example.png)
+
+*Sagittal QC figure showing automated landmark detection and pelvimetric measurements: sacral length (magenta), inlet AP (green), outlet AP (orange), and sacral depth (cyan).*
 
 ## Installation
 
