@@ -100,14 +100,14 @@ class TestDetectPelvicOrientation:
 class TestFindSacralLandmarks:
 
     def test_vertical_sacrum(self):
-        """Vertical column of voxels: promontory at top, apex at bottom."""
+        """Vertical column of voxels: promontory at top, coccygeal apex at bottom."""
         shape = (64, 64, 64)
         sacrum = np.zeros(shape, dtype=np.uint8)
         # Vertical bar at x=32, y=45, z from 20 to 50
         sacrum[32, 45, 20:50] = 1
 
-        result = find_sacral_landmarks(sacrum, mid_x=32, slab_half_voxels=3)
-        assert "promontory" in result or "apex" in result
+        result = find_sacral_landmarks(sacrum, sacrum=sacrum, mid_x=32, slab_half_voxels=3)
+        assert "promontory" in result or "coccygeal_apex" in result
 
     def test_empty_sacrum(self):
         shape = (64, 64, 64)

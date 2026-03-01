@@ -1,5 +1,5 @@
 """
-Pelvimetry measurement functions: ISD/APD, ITD (outlet transverse),
+Pelvimetry measurement functions: ISD, ITD (outlet transverse),
 sacral depth, and helper routines.
 """
 
@@ -17,22 +17,23 @@ from .landmarks import _voxels_in_xslab
 # Sacral Depth
 # ------------------------------------------------------------------
 
-def calculate_sacral_depth(sacrum, promontory, apex, affine,
+def calculate_sacral_depth(sacrum, promontory, coccygeal_apex, affine,
                            mid_x=None, slab_half_voxels=None):
     """Calculate sacral depth (anterior concavity).
 
     Sacral depth is the maximum perpendicular distance from the
     anterior contour of the sacrum to the chord connecting the
-    promontory and the apex, measured on the midsagittal plane.
+    promontory and the coccygeal apex, measured on the midsagittal
+    plane.
 
     Parameters
     ----------
     sacrum : numpy.ndarray
-        3-D binary sacrum mask.
+        3-D binary sacrum mask (may be sacrum+S1 merged).
     promontory : array-like of shape (3,)
         Promontory voxel coordinates (i, j, k).
-    apex : array-like of shape (3,)
-        Sacral apex voxel coordinates (i, j, k).
+    coccygeal_apex : array-like of shape (3,)
+        Coccygeal apex voxel coordinates (i, j, k).
     affine : numpy.ndarray of shape (4, 4)
         Voxel-to-world affine matrix.
     mid_x : float, optional
@@ -50,7 +51,7 @@ def calculate_sacral_depth(sacrum, promontory, apex, affine,
         Anterior contour voxel coordinates used for the
         calculation.
     """
-    if promontory is None or apex is None:
+    if promontory is None or coccygeal_apex is None:
         return None, None, None
 
     coords = np.argwhere(sacrum > 0)
@@ -58,7 +59,7 @@ def calculate_sacral_depth(sacrum, promontory, apex, affine,
         return None, None, None
 
     # Step 1: Extract anterior contour
-    z_min, z_max = min(promontory[2], apex[2]), max(promontory[2], apex[2])
+    z_min, z_max = min(promontory[2], coccygeal_apex[2]), max(promontory[2], coccygeal_apex[2])
 
     if mid_x is not None and slab_half_voxels is not None:
         coords_mid = _voxels_in_xslab(coords, mid_x, slab_half_voxels)
@@ -126,7 +127,7 @@ def calculate_sacral_depth(sacrum, promontory, apex, affine,
         sz = np.abs(affine[2, 2])
         contour_2d = contour_smoothed[:, [1, 2]] * np.array([sy, sz])
         p1_2d = np.array([promontory[1] * sy, promontory[2] * sz])
-        p2_2d = np.array([apex[1] * sy, apex[2] * sz])
+        p2_2d = np.array([coccygeal_apex[1] * sy, coccygeal_apex[2] * sz])
     else:
         print("      ⚠️ Sacral Depth skipped: midline X not available")
         return None, None, contour_points
@@ -148,7 +149,7 @@ def calculate_sacral_depth(sacrum, promontory, apex, affine,
     margin = 0.20 * chord_len
     min_z_gap = 5  # minimum Z-slices away from promontory/apex
     prom_z = promontory[2]
-    apex_z = apex[2]
+    apex_z = coccygeal_apex[2]
     max_depth = 0.0
     deepest_idx = None
 
@@ -724,15 +725,15 @@ def _run_isd_core_logic(data, sx, sy, sz, search_range_z, config):
 
 
 # ------------------------------------------------------------------
-# ISD + APD combined
+# ISD calculation
 # ------------------------------------------------------------------
 
-def calculate_isd_apd(data, spacing, _img_affine):
-    """Calculate ISD (Inter-Spinous Distance) and APD.
+def calculate_isd(data, spacing, _img_affine):
+    """Calculate ISD (Inter-Spinous Distance).
 
     Determines an optimal Z-level search range using a 3-tier
     fallback (femur → sacrum → hip), runs valley/plateau ISD
-    detection, then computes APD at the ISD slice.
+    detection.
 
     Parameters
     ----------
@@ -748,14 +749,14 @@ def calculate_isd_apd(data, spacing, _img_affine):
     Returns
     -------
     dict
-        Keys include ``'ISD_mm'``, ``'ISD_slice'``, ``'APD_mm'``,
+        Keys include ``'ISD_mm'``, ``'ISD_slice'``,
         ``'ISD_pt_left'``, ``'ISD_pt_right'``, ``'Status'``, and
         ``'midline_x'``.
     """
     result = {
         "ISD_mm": None,
         "ISD_slice": None,
-        "APD_mm": None,
+
         "ISD_pt_left": None,
         "ISD_pt_right": None,
         "Status": "Init",
@@ -822,26 +823,7 @@ def calculate_isd_apd(data, spacing, _img_affine):
         result["midline_x"] = isd_res["midline_x"]
         result["Status"] = status_msg
 
-        # Calculate APD at ISD slice
-        if "sacrum" in data:
-            z = best_z
-            mask_hips = data["hip_L"][:, :, z] + data["hip_R"][:, :, z]
-            mask_sacrum = data["sacrum"][:, :, z]
-            pts_hips = np.argwhere(mask_hips > 0)
-            pts_sacrum = np.argwhere(mask_sacrum > 0)
 
-            if len(pts_hips) > 0 and len(pts_sacrum) > 0:
-                y_max_hip = np.max(pts_hips[:, 1])
-                candidates_P = pts_hips[pts_hips[:, 1] > (y_max_hip - 10 / sy)]
-                if len(candidates_P) > 0:
-                    midline = isd_res["midline_x"]
-                    pt_P = candidates_P[np.argmin(np.abs(candidates_P[:, 0] - midline))]
-                    sacrum_mid = pts_sacrum[
-                        np.abs(pts_sacrum[:, 0] - midline) < (30 / sx)
-                    ]
-                    if len(sacrum_mid) > 0:
-                        pt_S = sacrum_mid[np.argmax(sacrum_mid[:, 1])]
-                        result["APD_mm"] = round(abs(pt_P[1] - pt_S[1]) * sy, 1)
     else:
         result["Status"] = status_msg or "Fail_NoValidISD"
 

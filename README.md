@@ -27,12 +27,12 @@ pip install ctpelvimetry
 | Metric | Description |
 |---|---|
 | ISD (mm) | Inter-Spinous Distance |
-| APD (mm) | Antero-Posterior Diameter at ISD level |
+
 | Inlet AP (mm) | Promontory → Upper Symphysis |
-| Outlet AP (mm) | Apex → Lower Symphysis |
+| Outlet AP (mm) | Coccygeal Apex → Lower Symphysis |
 | Outlet Transverse (mm) | Intertuberous diameter |
 | Outlet Area (cm²) | Ellipse approx: π/4 × AP × Transverse |
-| Sacral Length (mm) | Promontory → Apex |
+| Sacral Length (mm) | Promontory → Coccygeal Apex |
 | Sacral Depth (mm) | Max anterior concavity |
 
 ### Body Composition Measurements
@@ -166,7 +166,7 @@ ctpelvimetry/
 ├── conversion.py        # DICOM → NIfTI (dcm2niix)
 ├── segmentation.py      # TotalSegmentator execution
 ├── landmarks.py         # Midline, symphysis, sacral landmarks
-├── metrics.py           # ISD, APD, ITD, sacral depth
+├── metrics.py           # ISD, ITD, sacral depth
 ├── body_composition.py  # VAT/SAT/SMA analysis
 ├── qc.py                # QC figure generation
 ├── pipeline.py          # run_combined_pelvimetry, run_full_pipeline

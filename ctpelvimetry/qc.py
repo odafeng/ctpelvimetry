@@ -71,12 +71,12 @@ def save_sagittal_combined_qc_figure(
                 c="lime", s=250, marker="o", edgecolor="white",
                 linewidth=3, zorder=10, label="Promontory",
             )
-        if "apex" in landmarks:
+        if "coccygeal_apex" in landmarks:
             ax.scatter(
-                [landmarks["apex"][1]],
-                [landmarks["apex"][2]],
+                [landmarks["coccygeal_apex"][1]],
+                [landmarks["coccygeal_apex"][2]],
                 c="orange", s=250, marker="o", edgecolor="white",
-                linewidth=3, zorder=10, label="Apex",
+                linewidth=3, zorder=10, label="Coccygeal Apex",
             )
         if "symphysis_upper" in landmarks:
             ax.scatter(
@@ -94,10 +94,10 @@ def save_sagittal_combined_qc_figure(
             )
 
         # Sacral Length
-        if "promontory" in landmarks and "apex" in landmarks:
+        if "promontory" in landmarks and "coccygeal_apex" in landmarks:
             ax.plot(
-                [landmarks["promontory"][1], landmarks["apex"][1]],
-                [landmarks["promontory"][2], landmarks["apex"][2]],
+                [landmarks["promontory"][1], landmarks["coccygeal_apex"][1]],
+                [landmarks["promontory"][2], landmarks["coccygeal_apex"][2]],
                 c="magenta", linewidth=4, linestyle="--", zorder=8,
                 label=f"Sacral L: {safe_get('Sacral_Length_mm'):.1f}mm",
             )
@@ -112,10 +112,10 @@ def save_sagittal_combined_qc_figure(
             )
 
         # Outlet AP
-        if "apex" in landmarks and "symphysis_lower" in landmarks:
+        if "coccygeal_apex" in landmarks and "symphysis_lower" in landmarks:
             ax.plot(
-                [landmarks["apex"][1], landmarks["symphysis_lower"][1]],
-                [landmarks["apex"][2], landmarks["symphysis_lower"][2]],
+                [landmarks["coccygeal_apex"][1], landmarks["symphysis_lower"][1]],
+                [landmarks["coccygeal_apex"][2], landmarks["symphysis_lower"][2]],
                 c="orange", linewidth=4, linestyle="-", zorder=8,
                 label=f"Outlet AP: {safe_get('Outlet_AP_mm'):.1f}mm",
             )
@@ -124,11 +124,11 @@ def save_sagittal_combined_qc_figure(
         if (
             "Sacral_Max_Depth_Pt" in landmarks
             and "promontory" in landmarks
-            and "apex" in landmarks
+            and "coccygeal_apex" in landmarks
         ):
             d_pt = landmarks["Sacral_Max_Depth_Pt"]
             prom = landmarks["promontory"]
-            apex_lm = landmarks["apex"]
+            apex_lm = landmarks["coccygeal_apex"]
 
             p1_phys = np.array([float(prom[1]) * sy, float(prom[2]) * sz])
             p2_phys = np.array([float(apex_lm[1]) * sy, float(apex_lm[2]) * sz])
@@ -294,7 +294,6 @@ def save_extended_qc_figure(
         "",
         f"{'Mid-Pelvis':<50}",
         f"  {'ISD (mm)':<30} {safe_get('ISD_mm'):>16.1f}",
-        f"  {'APD (mm)':<30} {safe_get('APD_mm'):>16.1f}",
         "",
         f"{'Sacrum':<50}",
         f"  {'Sacral Length (mm)':<30} {safe_get('Sacral_Length_mm'):>16.1f}",

@@ -84,7 +84,7 @@ def run_pelvimetry_batch(
 
     priority_cols = [
         "Patient_ID", "Status", "Error_Log",
-        "ISD_mm", "APD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
+        "ISD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
         "Outlet_Transverse_mm", "Outlet_Area_cm2",
         "Sacral_Length_mm", "Sacral_Depth_mm",
         "Promontory_x", "Promontory_y", "Promontory_z",
@@ -106,7 +106,7 @@ def run_pelvimetry_batch(
     print(f"\n✅ Results saved to: {output_csv}")
 
     # ---- Failure Summary ----
-    all_metrics = ["ISD_mm", "APD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
+    all_metrics = ["ISD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
                    "Outlet_Transverse_mm", "Sacral_Length_mm", "Sacral_Depth_mm"]
     n_total = len(df)
     n_success = (df["Status"] == "Success").sum() if "Status" in df.columns else 0

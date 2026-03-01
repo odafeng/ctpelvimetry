@@ -29,10 +29,10 @@ class TestCalculateSacralDepth:
 
         affine = np.eye(4)
         promontory = np.array([32, 45, 49])
-        apex = np.array([32, 45, 20])
+        coccygeal_apex = np.array([32, 45, 20])
 
         depth, _, _ = calculate_sacral_depth(
-            sacrum, promontory, apex, affine,
+            sacrum, promontory, coccygeal_apex, affine,
             mid_x=32, slab_half_voxels=3
         )
         assert depth is not None

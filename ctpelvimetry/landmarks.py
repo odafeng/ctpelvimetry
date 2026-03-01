@@ -171,16 +171,21 @@ def detect_pelvic_orientation(hip_L, hip_R, affine, config=None):
 # Sacral landmarks
 # ------------------------------------------------------------------
 
-def find_sacral_landmarks(sacrum, mid_x=None, slab_half_voxels=None):
-    """Detect sacral promontory and apex from the sacrum mask.
+def find_sacral_landmarks(sacrum_s1, sacrum=None, mid_x=None, slab_half_voxels=None):
+    """Detect sacral promontory and coccygeal apex.
 
     When *mid_x* and *slab_half_voxels* are provided, the search is
     constrained to an X slab around the midsagittal plane.
 
     Parameters
     ----------
-    sacrum : numpy.ndarray
-        3-D binary sacrum mask.
+    sacrum_s1 : numpy.ndarray
+        3-D binary mask of sacrum merged with vertebrae_S1.  Used for
+        promontory detection (superior 20 % of Z-range).
+    sacrum : numpy.ndarray or None, optional
+        3-D binary sacrum-only mask (includes coccyx in TotalSegmentator).
+        Used for coccygeal apex detection.  Falls back to *sacrum_s1*
+        when ``None``.
     mid_x : float, optional
         Midline X in voxel space.
     slab_half_voxels : int, optional
@@ -189,11 +194,11 @@ def find_sacral_landmarks(sacrum, mid_x=None, slab_half_voxels=None):
     Returns
     -------
     dict
-        May contain ``'promontory'`` (voxel coords), ``'apex'``
+        May contain ``'promontory'`` (voxel coords), ``'coccygeal_apex'``
         (voxel coords), and ``'midline_x'``.
     """
     result = {}
-    coords = np.argwhere(sacrum > 0)
+    coords = np.argwhere(sacrum_s1 > 0)
     if len(coords) == 0:
         return result
 
@@ -211,6 +216,7 @@ def find_sacral_landmarks(sacrum, mid_x=None, slab_half_voxels=None):
     midline_x = result["midline_x"]
 
     # 1. Promontory: Most anterior point at S1 superior border
+    #    Uses sacrum_s1 (merged with vertebrae_S1) for accurate S1 coverage
     z_min_all, z_max_all = coords_mid[:, 2].min(), coords_mid[:, 2].max()
     z_range = z_max_all - z_min_all
     z_superior_threshold = z_max_all - 0.20 * z_range if z_range > 0 else z_min_all
@@ -229,15 +235,27 @@ def find_sacral_landmarks(sacrum, mid_x=None, slab_half_voxels=None):
         promontory_idx = np.argmax(coords_mid[:, 1])
         result["promontory"] = coords_mid[promontory_idx].copy()
 
-    # 2. Apex (Coccyx tip): Lowest Z
-    min_z = coords_mid[:, 2].min()
-    candidates_apex = coords_mid[coords_mid[:, 2] == min_z]
+    # 2. Coccygeal Apex: Lowest Z in the original sacrum mask
+    #    (TotalSegmentator sacrum mask includes coccyx)
+    sacrum_for_apex = sacrum if sacrum is not None else sacrum_s1
+    coords_apex = np.argwhere(sacrum_for_apex > 0)
+    if len(coords_apex) == 0:
+        coords_apex = coords  # fallback to sacrum_s1
+    if mid_x is not None and slab_half_voxels is not None:
+        coords_apex_mid = _voxels_in_xslab(coords_apex, mid_x, slab_half_voxels)
+        if len(coords_apex_mid) < 3:
+            coords_apex_mid = coords_apex
+    else:
+        coords_apex_mid = coords_apex
+
+    min_z = coords_apex_mid[:, 2].min()
+    candidates_apex = coords_apex_mid[coords_apex_mid[:, 2] == min_z]
     candidates_apex = sorted(candidates_apex, key=lambda p: abs(p[0] - midline_x))
     if len(candidates_apex) > 0:
-        result["apex"] = candidates_apex[0]
+        result["coccygeal_apex"] = candidates_apex[0]
     else:
-        coccyx_idx = np.argmin(coords_mid[:, 2])
-        result["apex"] = coords_mid[coccyx_idx].copy()
+        coccyx_idx = np.argmin(coords_apex_mid[:, 2])
+        result["coccygeal_apex"] = coords_apex_mid[coccyx_idx].copy()
 
     return result
 
@@ -246,11 +264,17 @@ def find_sacral_landmarks(sacrum, mid_x=None, slab_half_voxels=None):
 # Symphysis landmarks
 # ------------------------------------------------------------------
 
-def find_symphysis_midline_sagittal(hip_L, hip_R, mid_x, slab_half_voxels, sy=1.0):
+def find_symphysis_midline_sagittal(hip_L, hip_R, mid_x, slab_half_voxels,
+                                     sy=1.0, sz=1.0):
     """Locate upper and lower pubic symphysis landmarks.
 
     Landmarks are detected within the axis-aligned X slab defined by
     *mid_x* ± *slab_half_voxels*.  References: Baltus et al., Zhou et al.
+
+    .. versionchanged:: 1.2.0
+        Uses PCA long-axis endpoint detection instead of pure Z extremes.
+        This handles tilted pelves where the symphysis long axis is not
+        parallel to the Z axis.  Added *sz* parameter.
 
     Parameters
     ----------
@@ -264,6 +288,8 @@ def find_symphysis_midline_sagittal(hip_L, hip_R, mid_x, slab_half_voxels, sy=1.
         Half-width of the X slab in voxels.
     sy : float, optional
         Voxel spacing in the Y direction (mm, default 1.0).
+    sz : float, optional
+        Voxel spacing in the Z direction (mm, default 1.0).
 
     Returns
     -------
@@ -287,7 +313,7 @@ def find_symphysis_midline_sagittal(hip_L, hip_R, mid_x, slab_half_voxels, sy=1.
     if len(midline_band) == 0:
         return result
 
-    # 4. Filter for Anterior Structure (Symphysis)
+    # Filter for Anterior Structure (Symphysis)
     max_y = midline_band[:, 1].max()
     anterior_threshold = max_y - int(50.0 / sy)
     anterior_cluster = midline_band[midline_band[:, 1] > anterior_threshold]
@@ -295,14 +321,28 @@ def find_symphysis_midline_sagittal(hip_L, hip_R, mid_x, slab_half_voxels, sy=1.
     if len(anterior_cluster) == 0:
         return result
 
-    # 5. Upper Symphysis = Max Z
-    idx_upper = np.argmax(anterior_cluster[:, 2])
+    # PCA long-axis endpoint detection (V6.3)
+    # Project Y-Z into mm space, compute first principal component via SVD,
+    # then find the two voxels at the extremes of the PC1 projection.
+    if len(anterior_cluster) > 2:
+        yz_mm = anterior_cluster[:, 1:3].astype(float) * np.array([sy, sz])
+        yz_centred = yz_mm - yz_mm.mean(axis=0)
+        _, _, Vt = np.linalg.svd(yz_centred, full_matrices=False)
+        pc1 = Vt[0]  # first principal component direction
+        # Canonicalize: ensure Z component is positive (superior = max proj)
+        if pc1[1] < 0:
+            pc1 = -pc1
+        proj = yz_mm @ pc1
+        idx_upper = int(np.argmax(proj))
+        idx_lower = int(np.argmin(proj))
+    else:
+        # Fallback: pure Z extremes
+        idx_upper = int(np.argmax(anterior_cluster[:, 2]))
+        idx_lower = int(np.argmin(anterior_cluster[:, 2]))
+
     result["upper"] = anterior_cluster[idx_upper]
-
-    # 6. Lower Symphysis = Min Z
-    idx_lower = np.argmin(anterior_cluster[:, 2])
     result["lower"] = anterior_cluster[idx_lower]
-
     result["midline_x"] = mid_x
 
     return result
+

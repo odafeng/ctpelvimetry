@@ -26,12 +26,11 @@ class TestSaveSagittalCombinedQC:
             "Sacral_Length_mm": 100.0,
             "Sacral_Depth_mm": 15.0,
             "ISD_mm": 100.0,
-            "APD_mm": 120.0,
             "ITD_mm": 110.0,
         }
         landmarks = {
             "promontory": (32, 45, 50),
-            "apex": (32, 45, 20),
+            "coccygeal_apex": (32, 45, 20),
             "upper_symphysis": (32, 15, 45),
             "lower_symphysis": (32, 15, 25),
             "midline_x": 32,
@@ -54,7 +53,6 @@ class TestSaveExtendedQC:
         ct_vol = np.random.rand(64, 64, 64).astype(np.float32) * 1000
         result = {
             "ISD_mm": 100.0,
-            "APD_mm": 120.0,
             "ITD_mm": 110.0,
             "ISD_slice": 32,
             "ISD_pt_left": (20, 30, 32),

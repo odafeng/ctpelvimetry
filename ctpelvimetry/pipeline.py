@@ -17,7 +17,7 @@ from .landmarks import (
     find_sacral_landmarks,
     find_symphysis_midline_sagittal,
 )
-from .metrics import calculate_isd_apd, calculate_sacral_depth, find_outlet_transverse
+from .metrics import calculate_isd, calculate_sacral_depth, find_outlet_transverse
 from .qc import save_sagittal_combined_qc_figure, save_extended_qc_figure
 
 
@@ -28,13 +28,13 @@ from .qc import save_sagittal_combined_qc_figure, save_extended_qc_figure
 def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
     """Run combined pelvimetry analysis with per-metric error isolation.
 
-    Each of the seven metrics is wrapped in its own ``try``/``except``
+    Each of the six metrics is wrapped in its own ``try``/``except``
     so that a failure in one metric does not affect the others.
 
     Status semantics
     ^^^^^^^^^^^^^^^^
-    * ``'Success'``       — all 7 metrics produced.
-    * ``'Partial_N/7'``   — 1–6 metrics produced.
+    * ``'Success'``       — all 6 metrics produced.
+    * ``'Partial_N/6'``   — 1–5 metrics produced.
     * ``'Failure'``       — 0 metrics produced.
 
     Parameters
@@ -163,7 +163,7 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
                     )
 
             sacral = find_sacral_landmarks(
-                sacrum_for_prom, mid_x=mid_x, slab_half_voxels=slab_half_voxels
+                sacrum_for_prom, sacrum=sacrum, mid_x=mid_x, slab_half_voxels=slab_half_voxels
             )
         except Exception as e:
             print(f"      ⚠️ Sacral landmark detection failed: {e}")
@@ -179,13 +179,13 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
             result["Promontory_x"] = round(ras[0], 2)
             result["Promontory_y"] = round(ras[1], 2)
             result["Promontory_z"] = round(ras[2], 2)
-    if "apex" in sacral:
-        landmarks["apex"] = sacral["apex"]
-        ras = voxel_to_world_ras(sacral["apex"], img_affine)
+    if "coccygeal_apex" in sacral:
+        landmarks["coccygeal_apex"] = sacral["coccygeal_apex"]
+        ras = voxel_to_world_ras(sacral["coccygeal_apex"], img_affine)
         if ras is not None:
-            result["Sacral_Apex_x"] = round(ras[0], 2)
-            result["Sacral_Apex_y"] = round(ras[1], 2)
-            result["Sacral_Apex_z"] = round(ras[2], 2)
+            result["Coccygeal_Apex_x"] = round(ras[0], 2)
+            result["Coccygeal_Apex_y"] = round(ras[1], 2)
+            result["Coccygeal_Apex_z"] = round(ras[2], 2)
 
     # --- Quality Gate: Sacrum-Symphysis midline offset ---
     sacrum_offset = None
@@ -220,7 +220,7 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
     if mid_x is not None:
         try:
             symph = find_symphysis_midline_sagittal(
-                hip_L, hip_R, mid_x, slab_half_voxels, sy=sy
+                hip_L, hip_R, mid_x, slab_half_voxels, sy=sy, sz=sz
             )
         except Exception as e:
             print(f"      ⚠️ Symphysis detection failed: {e}")
@@ -248,7 +248,7 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
 
     isd_result = None
     try:
-        isd_result = calculate_isd_apd(isd_data, (sx, sy, sz), img_affine)
+        isd_result = calculate_isd(isd_data, (sx, sy, sz), img_affine)
 
         if isd_result.get("ISD_mm") is not None and "Success" in (isd_result.get("Status") or ""):
             result["ISD_mm"] = isd_result["ISD_mm"]
@@ -283,44 +283,6 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
         error_parts.append(f"ISD: ISD_EXCEPTION - {e}")
 
     # ========================================
-    # Metric 2: APD (Antero-Posterior Diameter)
-    # ========================================
-
-    try:
-        if result.get("ISD_mm") is None:
-            error_parts.append("APD: SKIPPED - APD requires ISD — ISD not available")
-        elif sacrum is None or np.sum(sacrum) == 0:
-            error_parts.append("APD: APD_NO_SACRUM - Sacrum mask missing or empty")
-        else:
-            best_z = result["ISD_slice"]
-            isd_midline = isd_result.get("midline_x") if isd_result else None
-
-            mask_hips = hip_L[:, :, best_z] + hip_R[:, :, best_z]
-            mask_sacrum = sacrum[:, :, best_z]
-            pts_hips = np.argwhere(mask_hips > 0)
-            pts_sacrum = np.argwhere(mask_sacrum > 0)
-
-            if len(pts_hips) > 0 and len(pts_sacrum) > 0:
-                y_max_hip = np.max(pts_hips[:, 1])
-                candidates_P = pts_hips[pts_hips[:, 1] > (y_max_hip - 10 / sy)]
-                if len(candidates_P) > 0 and isd_midline is not None:
-                    midline = isd_midline
-                    pt_P = candidates_P[np.argmin(np.abs(candidates_P[:, 0] - midline))]
-                    sacrum_mid = pts_sacrum[np.abs(pts_sacrum[:, 0] - midline) < (30 / sx)]
-                    if len(sacrum_mid) > 0:
-                        pt_S = sacrum_mid[np.argmax(sacrum_mid[:, 1])]
-                        apd_val = round(abs(pt_P[1] - pt_S[1]) * sy, 1)
-                        result["APD_mm"] = apd_val
-                    else:
-                        error_parts.append(f"APD: APD_NO_SACRUM - No sacrum near midline at Z={best_z}")
-                else:
-                    error_parts.append("APD: APD_NO_SACRUM - No anterior hip candidates")
-            else:
-                error_parts.append(f"APD: APD_NO_SACRUM - Empty masks at Z={best_z}")
-    except Exception as e:
-        error_parts.append(f"APD: APD_EXCEPTION - {e}")
-
-    # ========================================
     # Metric 3: Inlet AP (Promontory → Upper Symphysis)
     # ========================================
 
@@ -342,17 +304,17 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
         error_parts.append(f"Inlet_AP: INLET_EXCEPTION - {e}")
 
     # ========================================
-    # Metric 4: Outlet AP (Apex → Lower Symphysis)
+    # Metric 4: Outlet AP (Coccygeal Apex → Lower Symphysis)
     # ========================================
 
     try:
-        if "apex" not in landmarks:
-            error_parts.append("Outlet_AP: OUTLET_NO_APEX - Sacral apex (SCJ) not detected")
+        if "coccygeal_apex" not in landmarks:
+            error_parts.append("Outlet_AP: OUTLET_NO_APEX - Coccygeal apex not detected")
         elif "symphysis_lower" not in landmarks:
             error_parts.append("Outlet_AP: OUTLET_NO_SYMPHYSIS - Lower symphysis not detected")
         else:
             if mid_x is not None:
-                p1 = landmarks["apex"] * np.array([1, sy, sz])
+                p1 = landmarks["coccygeal_apex"] * np.array([1, sy, sz])
                 p2 = landmarks["symphysis_lower"] * np.array([1, sy, sz])
                 outlet_ap_val = round(np.linalg.norm(p1[1:] - p2[1:]), 1)
                 result["Outlet_AP_mm"] = outlet_ap_val
@@ -405,17 +367,17 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
         result["Outlet_Area_cm2"] = round(np.pi / 4 * outlet_ap * outlet_tr / 100, 1)
 
     # ========================================
-    # Metric 6: Sacral Length (Promontory → Apex)
+    # Metric 6: Sacral Length (Promontory → Coccygeal Apex)
     # ========================================
 
     try:
-        if "promontory" not in landmarks or "apex" not in landmarks:
-            reason = "Sacrum mask missing" if sacrum is None else "Promontory or apex not detected"
+        if "promontory" not in landmarks or "coccygeal_apex" not in landmarks:
+            reason = "Sacrum mask missing" if sacrum is None else "Promontory or coccygeal apex not detected"
             error_parts.append(f"Sacral_Length: SACRAL_NO_LANDMARKS - {reason}")
         else:
             if mid_x is not None:
                 p1 = landmarks["promontory"] * np.array([1, sy, sz])
-                p2 = landmarks["apex"] * np.array([1, sy, sz])
+                p2 = landmarks["coccygeal_apex"] * np.array([1, sy, sz])
                 saclen_val = round(np.linalg.norm(p1[1:] - p2[1:]), 1)
                 result["Sacral_Length_mm"] = saclen_val
             else:
@@ -429,13 +391,13 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
     # ========================================
 
     try:
-        if sacrum is None or np.sum(sacrum) == 0:
+        if sacrum_for_prom is None or np.sum(sacrum_for_prom) == 0:
             error_parts.append("Sacral_Depth: SACRAL_NO_MASK - Sacrum mask missing or empty")
-        elif "promontory" not in landmarks or "apex" not in landmarks:
-            error_parts.append("Sacral_Depth: SACRAL_NO_LANDMARKS - Promontory or apex not detected")
+        elif "promontory" not in landmarks or "coccygeal_apex" not in landmarks:
+            error_parts.append("Sacral_Depth: SACRAL_NO_LANDMARKS - Promontory or coccygeal apex not detected")
         else:
             sacral_depth, depth_pt, sacral_contour = calculate_sacral_depth(
-                sacrum, landmarks["promontory"], landmarks["apex"], img_affine,
+                sacrum_for_prom, landmarks["promontory"], landmarks["coccygeal_apex"], img_affine,
                 mid_x=mid_x, slab_half_voxels=slab_half_voxels
             )
             if sacral_depth is not None:
@@ -459,7 +421,7 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
     # ========================================
     # Status & Error Log
     # ========================================
-    all_metrics = ["ISD_mm", "APD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
+    all_metrics = ["ISD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
                    "Outlet_Transverse_mm", "Sacral_Length_mm", "Sacral_Depth_mm"]
     success_count = sum(1 for m in all_metrics if result.get(m) is not None)
     total = len(all_metrics)
@@ -497,6 +459,7 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
 
     seg_files = {
         "Seg_Sacrum": "sacrum.nii.gz",
+        "Seg_Vertebrae_S1": "vertebrae_S1.nii.gz",
         "Seg_Hip_Left": "hip_left.nii.gz",
         "Seg_Hip_Right": "hip_right.nii.gz",
         "Seg_Femur_Left": "femur_left.nii.gz",
@@ -625,7 +588,7 @@ def run_full_pipeline(
     # Print summary
     print("\n   📊 Results:")
     for key in [
-        "ISD_mm", "APD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
+        "ISD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
         "Outlet_Transverse_mm", "Outlet_Area_cm2",
         "Sacral_Length_mm", "Sacral_Depth_mm",
     ]:
