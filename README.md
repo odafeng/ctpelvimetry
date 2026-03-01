@@ -56,11 +56,11 @@ Measured at L3 vertebral level and ISD (mid-pelvis) level.
 
 ### QC Output Example
 
-![QC Example — Sagittal pelvimetry with automated landmark detection](docs/images/qc_example.png)
+![QC Example — Sagittal pelvimetry with automated landmark detection](https://raw.githubusercontent.com/odafeng/ctpelvimetry/main/docs/images/qc_example.png)
 
 *Sagittal QC figure showing automated landmark detection and pelvimetric measurements: sacral length (magenta), inlet AP (green), outlet AP (orange), and sacral depth (cyan).*
 
-![Extended QC Example — Axial views with measurement summary](docs/images/qc_extended_example.png)
+![Extended QC Example — Axial views with measurement summary](https://raw.githubusercontent.com/odafeng/ctpelvimetry/main/docs/images/qc_extended_example.png)
 
 *Extended QC panel: (a) outlet transverse diameter at tuberosity level, (b) interspinous distance on axial view, and (c) complete pelvimetry measurement summary.*
 
