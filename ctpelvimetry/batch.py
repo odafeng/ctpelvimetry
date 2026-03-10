@@ -59,6 +59,14 @@ def run_pelvimetry_batch(
             patient_folders.append({"patient_id": pid, "dicom_path": dicom_path})
 
     print(f"🔬 Found {len(patient_folders)} patients to process")
+    if not patient_folders:
+        import warnings
+        warnings.warn(
+            f"No patient directories found in '{dicom_root}' "
+            f"(searched Patient_{start:03d}..Patient_{end:03d}). "
+            "Check that the path and patient naming convention are correct.",
+            stacklevel=2,
+        )
 
     for patient in tqdm(patient_folders, desc="Processing"):
         pid = patient["patient_id"]
@@ -191,6 +199,14 @@ def run_body_composition_batch(
             patients.append(patient_id)
 
     print(f"🔬 Found {len(patients)} patients to process")
+    if not patients:
+        import warnings
+        warnings.warn(
+            f"No patient directories found in '{seg_root}' "
+            f"(searched Patient_{start:03d}..Patient_{end:03d}). "
+            "Check that the path and patient naming convention are correct.",
+            stacklevel=2,
+        )
 
     results = []
 

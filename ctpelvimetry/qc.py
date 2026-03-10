@@ -51,6 +51,13 @@ def save_sagittal_combined_qc_figure(
     def safe_get(key, default=np.nan):
         return result.get(key, default) if result.get(key) is not None else default
 
+    def fmt_val(key, unit="mm"):
+        """Format a metric value for display, returning 'N/A' when missing."""
+        v = result.get(key)
+        if v is None or (isinstance(v, float) and np.isnan(v)):
+            return "N/A"
+        return f"{v:.1f}{unit}"
+
     def sagittal_mip(ct, mid_x, half_width):
         x_lo = max(0, int(mid_x) - half_width)
         x_hi = min(ct.shape[0], int(mid_x) + half_width + 1)
@@ -99,7 +106,7 @@ def save_sagittal_combined_qc_figure(
                 [landmarks["promontory"][1], landmarks["coccygeal_apex"][1]],
                 [landmarks["promontory"][2], landmarks["coccygeal_apex"][2]],
                 c="magenta", linewidth=4, linestyle="--", zorder=8,
-                label=f"Sacral L: {safe_get('Sacral_Length_mm'):.1f}mm",
+                label=f"Sacral L: {fmt_val('Sacral_Length_mm')}",
             )
 
         # Inlet AP
@@ -108,7 +115,7 @@ def save_sagittal_combined_qc_figure(
                 [landmarks["promontory"][1], landmarks["symphysis_upper"][1]],
                 [landmarks["promontory"][2], landmarks["symphysis_upper"][2]],
                 c="lime", linewidth=4, linestyle="-", zorder=8,
-                label=f"Inlet AP: {safe_get('Inlet_AP_mm'):.1f}mm",
+                label=f"Inlet AP: {fmt_val('Inlet_AP_mm')}",
             )
 
         # Outlet AP
@@ -117,7 +124,7 @@ def save_sagittal_combined_qc_figure(
                 [landmarks["coccygeal_apex"][1], landmarks["symphysis_lower"][1]],
                 [landmarks["coccygeal_apex"][2], landmarks["symphysis_lower"][2]],
                 c="orange", linewidth=4, linestyle="-", zorder=8,
-                label=f"Outlet AP: {safe_get('Outlet_AP_mm'):.1f}mm",
+                label=f"Outlet AP: {fmt_val('Outlet_AP_mm')}",
             )
 
         # Sacral Depth
@@ -146,7 +153,7 @@ def save_sagittal_combined_qc_figure(
                 [p3_vox[0], proj_pt_vox[0]],
                 [p3_vox[1], proj_pt_vox[1]],
                 c="cyan", linewidth=3, linestyle="--", zorder=9,
-                label=f"Sacral Depth: {safe_get('Sacral_Depth_mm'):.1f}mm",
+                label=f"Sacral Depth: {fmt_val('Sacral_Depth_mm')}",
             )
             ax.scatter(
                 [d_pt[1]], [d_pt[2]],
@@ -213,6 +220,20 @@ def save_extended_qc_figure(
     def safe_get(key, default=np.nan):
         return result.get(key, default) if result.get(key) is not None else default
 
+    def fmt_val(key, unit="mm"):
+        """Format a metric value for display, returning 'N/A' when missing."""
+        v = result.get(key)
+        if v is None or (isinstance(v, float) and np.isnan(v)):
+            return "N/A"
+        return f"{v:.1f}{unit}"
+
+    def fmt_tbl(key):
+        """Format for summary table column (right-aligned, 16-char wide)."""
+        v = result.get(key)
+        if v is None or (isinstance(v, float) and np.isnan(v)):
+            return f"{'N/A':>16}"
+        return f"{v:>16.1f}"
+
     def _sagittal_mip(ct, mid_x, half_width=3):
         x_lo = max(0, int(mid_x) - half_width)
         x_hi = min(ct.shape[0], int(mid_x) + half_width + 1)
@@ -244,7 +265,7 @@ def save_extended_qc_figure(
         ax1.legend(loc="upper right", fontsize=9, framealpha=0.9)
 
     ax1.set_title(
-        f"(a) Outlet Transverse: {safe_get('Outlet_Transverse_mm'):.1f} mm",
+        f"(a) Outlet Transverse: {fmt_val('Outlet_Transverse_mm')}",
         fontsize=12, fontweight="bold",
     )
     ax1.axis("off")
@@ -278,7 +299,7 @@ def save_extended_qc_figure(
         ax2.legend(loc="upper right", fontsize=9, framealpha=0.9)
 
     ax2.set_title(
-        f"(b) ISD: {safe_get('ISD_mm'):.1f} mm (Axial @ Z={isd_slice})",
+        f"(b) ISD: {fmt_val('ISD_mm')} (Axial @ Z={isd_slice})",
         fontsize=12, fontweight="bold",
     )
     ax2.axis("off")
@@ -293,19 +314,19 @@ def save_extended_qc_figure(
         "━" * 50,
         "",
         f"{'Mid-Pelvis':<50}",
-        f"  {'ISD (mm)':<30} {safe_get('ISD_mm'):>16.1f}",
+        f"  {'ISD (mm)':<30} {fmt_tbl('ISD_mm')}",
         "",
         f"{'Sacrum':<50}",
-        f"  {'Sacral Length (mm)':<30} {safe_get('Sacral_Length_mm'):>16.1f}",
-        f"  {'Sacral Depth (mm)':<30} {safe_get('Sacral_Depth_mm'):>16.1f}",
+        f"  {'Sacral Length (mm)':<30} {fmt_tbl('Sacral_Length_mm')}",
+        f"  {'Sacral Depth (mm)':<30} {fmt_tbl('Sacral_Depth_mm')}",
         "",
         f"{'Inlet':<50}",
-        f"  {'Inlet AP (mm)':<30} {safe_get('Inlet_AP_mm'):>16.1f}",
+        f"  {'Inlet AP (mm)':<30} {fmt_tbl('Inlet_AP_mm')}",
         "",
         f"{'Outlet':<50}",
-        f"  {'Outlet AP (mm)':<30} {safe_get('Outlet_AP_mm'):>16.1f}",
-        f"  {'Outlet Transverse (mm)':<30} {safe_get('Outlet_Transverse_mm'):>16.1f}",
-        f"  {'Outlet Area (cm²)':<30} {safe_get('Outlet_Area_cm2'):>16.1f}",
+        f"  {'Outlet AP (mm)':<30} {fmt_tbl('Outlet_AP_mm')}",
+        f"  {'Outlet Transverse (mm)':<30} {fmt_tbl('Outlet_Transverse_mm')}",
+        f"  {'Outlet Area (cm²)':<30} {fmt_tbl('Outlet_Area_cm2')}",
         "",
         "━" * 50,
         f"Status: {result.get('Status', 'Unknown')}",

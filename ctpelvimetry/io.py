@@ -17,17 +17,17 @@ def load_mask(path):
 
     Parameters
     ----------
-    path : str
+    path : str or None
         Absolute path to the ``.nii.gz`` mask file.
 
     Returns
     -------
     data : numpy.ndarray or None
-        3-D mask array, or ``None`` if *path* does not exist.
+        3-D mask array, or ``None`` if *path* is ``None`` or does not exist.
     header : nibabel.Nifti1Header or None
-        NIfTI header, or ``None`` if *path* does not exist.
+        NIfTI header, or ``None`` if *path* is ``None`` or does not exist.
     """
-    if not os.path.exists(path):
+    if path is None or not os.path.exists(path):
         return None, None
     img = nib.load(path)
     return img.get_fdata(), img.header
@@ -50,7 +50,7 @@ def load_nifti_canonical(path):
     affine : numpy.ndarray (4, 4) or None
         Voxel-to-world affine matrix after reorientation.
     """
-    if not os.path.exists(path):
+    if path is None or not os.path.exists(path):
         return None, None, None
     img = nib.load(path)
     img = nib.as_closest_canonical(img)
@@ -65,7 +65,7 @@ def load_mask_canonical(path):
 
     Parameters
     ----------
-    path : str
+    path : str or None
         Absolute path to the ``.nii.gz`` mask file.
 
     Returns
@@ -77,7 +77,7 @@ def load_mask_canonical(path):
     affine : numpy.ndarray (4, 4) or None
         Voxel-to-world affine after reorientation.
     """
-    if not os.path.exists(path):
+    if path is None or not os.path.exists(path):
         return None, None, None
     img = nib.load(path)
     img = nib.as_closest_canonical(img)

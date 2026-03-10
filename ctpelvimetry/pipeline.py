@@ -2,12 +2,15 @@
 Pipeline orchestration: run_combined_pelvimetry and run_full_pipeline.
 """
 
+from __future__ import annotations
+
 import os
+from typing import Optional
 
 import numpy as np
 import nibabel as nib
 
-from .config import DEFAULT_PELVIC_CONFIG
+from .config import DEFAULT_PELVIC_CONFIG, PelvicConfig
 from .io import load_mask_canonical, voxel_to_world_ras
 from .conversion import convert_dicom_to_nifti
 from .segmentation import setup_license, run_totalsegmentator
@@ -20,12 +23,52 @@ from .landmarks import (
 from .metrics import calculate_isd, calculate_sacral_depth, find_outlet_transverse
 from .qc import save_sagittal_combined_qc_figure, save_extended_qc_figure
 
+# Canonical keys that every result dict must contain (for DataFrame safety)
+_RESULT_KEYS: list[str] = [
+    "Patient_ID", "Status", "Error_Log",
+    "ISD_mm", "ISD_slice",
+    "Inlet_AP_mm", "Outlet_AP_mm",
+    "Outlet_Transverse_mm", "Outlet_Area_cm2",
+    "Sacral_Length_mm", "Sacral_Depth_mm",
+    "Promontory_x", "Promontory_y", "Promontory_z",
+    "Coccygeal_Apex_x", "Coccygeal_Apex_y", "Coccygeal_Apex_z",
+    "Upper_Symphysis_x", "Upper_Symphysis_y", "Upper_Symphysis_z",
+    "Lower_Symphysis_x", "Lower_Symphysis_y", "Lower_Symphysis_z",
+    "Sacral_Max_Depth_Pt_x", "Sacral_Max_Depth_Pt_y", "Sacral_Max_Depth_Pt_z",
+    "ISD_L_x", "ISD_L_y", "ISD_L_z",
+    "ISD_R_x", "ISD_R_y", "ISD_R_z",
+    "IT_L_x", "IT_L_y", "IT_L_z",
+    "IT_R_x", "IT_R_y", "IT_R_z",
+    "Pelvic_Rotation_deg", "Pelvic_Tilt_deg",
+    "Pelvic_Rotation_Flag", "Pelvic_Tilt_Flag",
+    "Sacrum_Offset_mm", "Sacrum_Offset_Flag",
+    "CT_NIfTI",
+    "Seg_Sacrum", "Seg_Vertebrae_S1",
+    "Seg_Hip_Left", "Seg_Hip_Right",
+    "Seg_Femur_Left", "Seg_Femur_Right",
+    "Seg_Torso_Fat", "Seg_Subcutaneous_Fat", "Seg_Skeletal_Muscle",
+    "Seg_Vertebrae",
+]
+
+
+def _normalise_result(result: dict) -> dict:
+    """Ensure *result* contains every canonical key (fill missing with None)."""
+    for key in _RESULT_KEYS:
+        result.setdefault(key, None)
+    return result
+
 
 # ------------------------------------------------------------------
 # Main Combined Analysis Function
 # ------------------------------------------------------------------
 
-def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
+def run_combined_pelvimetry(
+    patient_id: str,
+    seg_folder: str,
+    nifti_path: str,
+    qc_dir: Optional[str] = None,
+    config: Optional[PelvicConfig] = None,
+) -> dict:
     """Run combined pelvimetry analysis with per-metric error isolation.
 
     Each of the six metrics is wrapped in its own ``try``/``except``
@@ -47,13 +90,21 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
         Path to the CT NIfTI file.
     qc_dir : str or None, optional
         Directory for QC image output (default ``None``).
+    config : PelvicConfig or None, optional
+        Detection parameters.  When ``None`` the package-level
+        ``DEFAULT_PELVIC_CONFIG`` is used.
 
     Returns
     -------
     dict
         Measurement results, world-space landmark coordinates,
-        overall ``'Status'``, and ``'Error_Log'``.
+        overall ``'Status'``, and ``'Error_Log'``.  The dict always
+        contains every canonical key; missing values are ``None``.
     """
+    patient_id = str(patient_id)
+    if config is None:
+        config = DEFAULT_PELVIC_CONFIG
+
     result = {"Patient_ID": patient_id}
     landmarks = {}
     error_parts = []
@@ -75,7 +126,7 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
     if hip_L is None or hip_R is None:
         result["Status"] = "Failure"
         result["Error_Log"] = "ALL: ISD_NO_HIP_MASK - hip_left or hip_right mask missing"
-        return result
+        return _normalise_result(result)
 
     sx, sy, sz = header.get_zooms()[:3]
 
@@ -204,8 +255,8 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
                 return "ok"
 
             flag = _offset_flag(offset_mm,
-                                DEFAULT_PELVIC_CONFIG.sacrum_offset_warn_mm,
-                                DEFAULT_PELVIC_CONFIG.sacrum_offset_fail_mm)
+                                config.sacrum_offset_warn_mm,
+                                config.sacrum_offset_fail_mm)
             result["Sacrum_Offset_Flag"] = flag
             sacrum_offset = {"offset_mm": offset_mm, "flag": flag}
 
@@ -331,7 +382,7 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
     try:
         isd_z_for_itd = result.get("ISD_slice")
         otd_val, ot_ptL, ot_ptR, otd_z = find_outlet_transverse(
-            hip_L, hip_R, img_affine, config=DEFAULT_PELVIC_CONFIG,
+            hip_L, hip_R, img_affine, config=config,
             isd_z_voxel=isd_z_for_itd,
         )
         if otd_val is not None:
@@ -510,7 +561,7 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
             except Exception as e:
                 print(f"      ⚠️ Extended QC error: {e}")
 
-    return result
+    return _normalise_result(result)
 
 
 # ------------------------------------------------------------------
@@ -518,13 +569,14 @@ def run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=None):
 # ------------------------------------------------------------------
 
 def run_full_pipeline(
-    patient_id,
-    dicom_path,
-    output_root,
-    use_fast=False,
-    skip_tissue=False,
-    generate_qc=True,
-):
+    patient_id: str,
+    dicom_path: str,
+    output_root: str,
+    use_fast: bool = False,
+    skip_tissue: bool = False,
+    generate_qc: bool = True,
+    config: Optional[PelvicConfig] = None,
+) -> dict:
     """Full pipeline: DICOM → NIfTI → segmentations → pelvimetry.
 
     Orchestrates DICOM conversion, TotalSegmentator execution, and
@@ -544,12 +596,15 @@ def run_full_pipeline(
         Skip tissue-type segmentation (default ``False``).
     generate_qc : bool, optional
         Generate QC figures (default ``True``).
+    config : PelvicConfig or None, optional
+        Detection parameters forwarded to ``run_combined_pelvimetry``.
 
     Returns
     -------
     dict
         Combined measurement result dictionary.
     """
+    patient_id = str(patient_id)
     print(f"\n{'='*50}")
     print(f"🔹 Processing: {patient_id}")
     print(f"{'='*50}")
@@ -566,13 +621,13 @@ def run_full_pipeline(
     if qc_dir:
         os.makedirs(qc_dir, exist_ok=True)
 
-    result = {"Patient_ID": patient_id}
+    result: dict = {"Patient_ID": patient_id}
 
     # Phase 1: DICOM → NIfTI
     nifti_path = convert_dicom_to_nifti(patient_id, dicom_path, nifti_dir)
     if not nifti_path:
         result["Status"] = "Fail_NIfTI"
-        return result
+        return _normalise_result(result)
 
     # Phase 2: NIfTI → Segmentations
     seg_folder = run_totalsegmentator(
@@ -580,10 +635,12 @@ def run_full_pipeline(
     )
     if not seg_folder:
         result["Status"] = "Fail_Seg"
-        return result
+        return _normalise_result(result)
 
     # Phase 3: Segmentations → Pelvimetry + QC Figures
-    result = run_combined_pelvimetry(patient_id, seg_folder, nifti_path, qc_dir=qc_dir)
+    result = run_combined_pelvimetry(
+        patient_id, seg_folder, nifti_path, qc_dir=qc_dir, config=config
+    )
 
     # Print summary
     print("\n   📊 Results:")
