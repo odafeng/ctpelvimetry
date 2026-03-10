@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.1] - 2026-03-10
+
+### Fixed
+- `run_body_composition_batch` crashed with `KeyError: 'Status'` when zero patients were found (empty DataFrame had no columns)
+
 ## [1.4.0] - 2026-03-10
 
 ### Added

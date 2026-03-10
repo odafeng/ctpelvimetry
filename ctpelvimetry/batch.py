@@ -245,7 +245,7 @@ def run_body_composition_batch(
     print(f"\n✅ Results saved to: {output_csv}")
 
     # Summary
-    success_count = len(df[df['Status'] == 'Success'])
+    success_count = (df["Status"] == "Success").sum() if "Status" in df.columns else 0
     print("\n📊 Summary:")
     print(f"   Total processed: {len(df)}")
     print(f"   Successful: {success_count}")
