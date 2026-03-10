@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-03-10
+
+### Added
+- **`config` parameter** on `run_combined_pelvimetry` and `run_full_pipeline` — inject a custom `PelvicConfig` to tune detection thresholds without monkey-patching
+- **`PelvicConfig`** exported as public API from the top-level package
+- **`__all__`** defined in `__init__.py` — `from ctpelvimetry import *` now exposes only the intended public API
+- **`__main__.py`** — `python -m ctpelvimetry` now works as expected
+- **Batch zero-patient warning** — `run_pelvimetry_batch` and `run_body_composition_batch` emit `warnings.warn()` when no patient directories are found
+
+### Fixed
+- **Return dict schema consistency** — `run_combined_pelvimetry` now always returns the same set of keys regardless of failure mode (missing values filled with `None`), preventing `KeyError` / unexpected `NaN` when collecting batch results into a DataFrame
+- **`load_mask(None)` crash** — all I/O load functions (`load_mask`, `load_mask_canonical`, `load_nifti_canonical`) now accept `None` as path and return `(None, ...)` gracefully instead of raising `TypeError`
+- **QC "nanmm" display** — NaN metric values now render as "N/A" in QC legend labels, panel titles, and the summary table (previously showed `nanmm`, `nan mm`, etc.)
+- **Integer `patient_id`** — automatically coerced to `str` in pipeline functions to prevent downstream type issues
+
+### Changed
+- Added type annotations to all three public API functions (`run_combined_pelvimetry`, `run_full_pipeline`, `process_single_patient`)
+
 ## [1.3.1] - 2026-03-01
 
 ### Fixed
