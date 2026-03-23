@@ -22,6 +22,19 @@ pip install ctpelvimetry
 # Full install (includes TotalSegmentator for end-to-end automation)
 pip install "ctpelvimetry[seg]"
 ````
+### ⚠️ Hardware Requirements (Important!)
+
+Because the full end-to-end pipeline relies on deep learning models (TotalSegmentator) for 3D image segmentation, **a dedicated GPU is strongly recommended**.
+
+* **Recommended Setup (for `ctpelvimetry[seg]`)**:
+  * **GPU**: NVIDIA GPU with at least **8GB VRAM** (16GB+ recommended for high-resolution CTs, e.g., NVIDIA T4, RTX 3060/4090, or A100).
+  * **RAM**: 16GB+ System RAM.
+  * **Time**: With a dedicated GPU, a single patient scan takes **< 2 minutes**.
+* **Without a GPU (CPU-only)**:
+  * The pipeline will still run, but segmentation may take **10 to 30+ minutes** per scan, and you risk running out of memory (OOM) on large DICOM series.
+* **Pro Tip for Clinical Researchers**: If you don't have a local GPU workstation, you can easily run the full pipeline in a cloud environment like **Google Colab (using a free T4 GPU)**.
+
+*(Note: If you are only running the basic `ctpelvimetry` on pre-existing segmentations, a standard CPU is perfectly fine.)*
 
 ### End-to-End Analysis (CLI)
 
