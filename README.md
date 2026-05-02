@@ -68,10 +68,14 @@ ctpelvimetry pelv --dicom_dir /path/to/patient_scan --output_root ./output --qc
 If your data is already in NIfTI format (e.g. public datasets like the Medical Decathlon or TotalSegmentator benchmark), skip the DICOM conversion step:
 
 ```bash
+# Single file
 ctpelvimetry pelv --nifti_path /path/to/ct.nii.gz --patient Patient_001 --output_root ./output --qc
+
+# Whole directory of *.nii.gz files (one per patient)
+ctpelvimetry pelv --nifti_root /path/to/niftis --output_root ./output
 ```
 
-The pipeline will run TotalSegmentator on the NIfTI volume directly and proceed with measurement and QC.
+The pipeline runs TotalSegmentator on each NIfTI volume, extracts metrics, and (in batch mode) aggregates everything into a single CSV with per-patient error isolation. Patient IDs are derived from filenames: `case_001.nii.gz` → `case_001`.
 
 -----
 
