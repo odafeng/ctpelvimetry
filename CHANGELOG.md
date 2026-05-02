@@ -11,8 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **`run_nifti_pipeline`** — new public API entry point for NIfTI inputs (NIfTI → Seg → Pelvimetry), skipping the DICOM → NIfTI conversion step. Useful for public datasets distributed in NIfTI format (Medical Decathlon, TotalSegmentator benchmark, etc.)
 - **CLI Mode 4** — `ctpelvimetry pelv --nifti_path <ct.nii.gz> --patient <id> --output_root <dir>` runs the full pipeline starting from a NIfTI file
 
+### Security
+- **Removed hard-coded TotalSegmentator academic license key** from `segmentation.py`. The bundled key was distributed publicly via PyPI, which (a) violated TotalSegmentator's per-user license terms and (b) exposed all users to a single point of revocation. License keys are now read from the `TOTALSEG_LICENSE_KEY` environment variable.
+
 ### Changed
 - `pelv` subcommand help now documents all four input modes (DICOM single, NIfTI single, DICOM batch, existing seg)
+- `setup_license()` now reads the license key from `TOTALSEG_LICENSE_KEY`. If unset, the function prints registration instructions and skips license setup; pelvimetry runs normally, only `tissue_types` (VAT/SAT/muscle) is unavailable.
+- `run_totalsegmentator()` fast-paths the tissue_types task: if `TOTALSEG_LICENSE_KEY` is unset, the subprocess is skipped entirely (no error stack), keeping the no-license user experience clean.
+- `subprocess.run` in `setup_license()` no longer uses `shell=True`; arguments are passed as a list to prevent shell-metacharacter injection from the env var.
+
+### Migration
+Users who were relying on the bundled license key for body composition must now register their own academic key at https://backend.totalsegmentator.com/license-academic/ and set `TOTALSEG_LICENSE_KEY`. Pelvimetry-only users are unaffected.
 
 ## [1.4.1] - 2026-03-10
 

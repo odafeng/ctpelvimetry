@@ -22,6 +22,23 @@ pip install ctpelvimetry
 # Full install (includes TotalSegmentator for end-to-end automation)
 pip install "ctpelvimetry[seg]"
 ````
+
+**That's it for pelvimetry.** Install, run, get measurements. No registration, no tokens.
+
+### 🔑 Optional: Enable Body Composition
+
+`ctpelvimetry` measures pelvimetry out of the box. To **also** extract body composition (VAT, SAT, skeletal muscle), enable TotalSegmentator's `tissue_types` task with a free academic license:
+
+```bash
+# 1. Register (free, takes 30 seconds): https://backend.totalsegmentator.com/license-academic/
+# 2. Set the env var (add to ~/.bashrc or ~/.zshrc to persist):
+export TOTALSEG_LICENSE_KEY=aca_xxxxxxxxxxxx
+```
+
+If `TOTALSEG_LICENSE_KEY` is unset, pelvimetry runs normally; body composition is silently skipped.
+
+> ⚠️ Versions ≤ 1.4.1 shipped with a hard-coded license key. That key has been removed for security and licence-compliance reasons; please register your own.
+
 ### ⚠️ Hardware Requirements (Important!)
 
 Because the full end-to-end pipeline relies on deep learning models (TotalSegmentator) for 3D image segmentation, **a dedicated GPU is strongly recommended**.
