@@ -1,0 +1,47 @@
+# Dependabot configuration
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Opens automated PRs to keep dependencies fresh. CI runs on each PR
+# so anything that breaks the test matrix gets caught before merge.
+
+version: 2
+updates:
+  # Python dependencies (pyproject.toml)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    # Group all minor/patch updates of scientific Python deps into
+    # a single PR — reduces review noise without losing safety.
+    groups:
+      scientific-python:
+        patterns:
+          - "numpy"
+          - "scipy"
+          - "pandas"
+          - "nibabel"
+          - "matplotlib"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions versions (workflows pin to vN; this catches new majors)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

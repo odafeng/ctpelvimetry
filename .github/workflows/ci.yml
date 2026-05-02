@@ -7,12 +7,44 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  # ------------------------------------------------------------------
+  # Lint pass — runs in parallel with tests, fast feedback on style.
+  # Uses ruff defaults; tighten rule selection in pyproject.toml as
+  # the codebase stabilises.
+  # ------------------------------------------------------------------
+  quality:
+    name: Lint (ruff)
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Run ruff
+        run: ruff check ctpelvimetry/ tests/
+
+  # ------------------------------------------------------------------
+  # Test matrix — Linux × {3.10, 3.11, 3.12, 3.13} + macOS smoke test.
+  # macOS runs only on 3.12 to keep total runtime reasonable; if a
+  # platform-specific bug appears, expand the macOS row of the matrix.
+  # ------------------------------------------------------------------
+  test:
+    name: Test (Python ${{ matrix.python-version }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          - os: macos-latest
+            python-version: "3.12"
 
     steps:
       - uses: actions/checkout@v4
