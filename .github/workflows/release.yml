@@ -1,0 +1,185 @@
+name: Release
+
+# Triggered when a tag matching v* is pushed (e.g. v1.5.0, v2.0.0-rc1).
+# Uses PyPI Trusted Publishing (OIDC), so no API tokens are required.
+#
+# Required setup (one-time, on PyPI side):
+#   https://pypi.org/manage/project/ctpelvimetry/settings/publishing/
+#   Owner:               odafeng
+#   Repository:          ctpelvimetry
+#   Workflow filename:   release.yml
+#   Environment name:    pypi
+#
+# To cut a release:
+#   1. Bump version in pyproject.toml AND ctpelvimetry/__init__.py
+#   2. Update CHANGELOG.md with a [X.Y.Z] - YYYY-MM-DD section
+#   3. git commit + git push
+#   4. git tag vX.Y.Z && git push origin vX.Y.Z
+#   This workflow then: verifies version → tests → builds → publishes to PyPI
+#   → creates a GitHub Release with notes auto-extracted from CHANGELOG.md.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  # ------------------------------------------------------------------
+  # 1. Verify the tag matches what's in the source code. Fail fast
+  #    before doing any heavy work — a mismatch here means a botched
+  #    release that would need to be yanked from PyPI.
+  # ------------------------------------------------------------------
+  verify-version:
+    name: Verify version matches tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check version consistency across tag, pyproject.toml, __init__.py
+        id: check
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PYPROJECT_VERSION=$(grep -E '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          INIT_VERSION=$(grep -E '^__version__' ctpelvimetry/__init__.py | sed 's/__version__ = "\(.*\)"/\1/')
+
+          echo "Tag version:        $TAG_VERSION"
+          echo "pyproject.toml:     $PYPROJECT_VERSION"
+          echo "__init__.py:        $INIT_VERSION"
+
+          if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match pyproject.toml ($PYPROJECT_VERSION)"
+            exit 1
+          fi
+          if [ "$TAG_VERSION" != "$INIT_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match __init__.py ($INIT_VERSION)"
+            exit 1
+          fi
+
+          echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
+
+  # ------------------------------------------------------------------
+  # 2. Run tests. Defence-in-depth — main has already been tested by
+  #    ci.yml on push, but a tag could point at any commit, so we
+  #    re-verify before the irrevocable PyPI upload.
+  # ------------------------------------------------------------------
+  test:
+    name: Run tests
+    needs: verify-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[seg]" pytest
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+  # ------------------------------------------------------------------
+  # 3. Build sdist + wheel and validate with twine check.
+  # ------------------------------------------------------------------
+  build:
+    name: Build distribution
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build sdist + wheel
+        run: python -m build
+
+      - name: Validate distribution metadata
+        run: python -m twine check dist/*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+          retention-days: 7
+
+  # ------------------------------------------------------------------
+  # 4. Publish to PyPI via Trusted Publishing (OIDC).
+  #    No API token needed — `id-token: write` lets the workflow
+  #    request a short-lived OIDC token that PyPI exchanges for an
+  #    upload credential.
+  # ------------------------------------------------------------------
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ctpelvimetry
+    permissions:
+      id-token: write  # Required for trusted publishing
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  # ------------------------------------------------------------------
+  # 5. Create a GitHub Release with notes auto-extracted from
+  #    CHANGELOG.md. Attaches the sdist + wheel for users who prefer
+  #    GitHub Releases over PyPI.
+  # ------------------------------------------------------------------
+  github-release:
+    name: Create GitHub Release
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create releases
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Extract changelog section for this release
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Extract everything between `## [VERSION]` and the next `## [` header
+          awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "No CHANGELOG entry found for v$VERSION." > release_notes.md
+            echo "" >> release_notes.md
+            echo "See [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md) for details." >> release_notes.md
+          fi
+          echo "--- Release notes ---"
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Release $GITHUB_REF_NAME" \
+            --notes-file release_notes.md \
+            dist/*
