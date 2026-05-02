@@ -2,32 +2,410 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/ctpelvimetry.svg?color=blue)](https://pypi.org/project/ctpelvimetry/)
 [![Python versions](https://img.shields.io/pypi/pyversions/ctpelvimetry.svg)](https://pypi.org/project/ctpelvimetry/)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 > **The first open-source Python package for fully automated CT pelvimetry and body composition analysis.**
 
-`ctpelvimetry` transforms the manual, time-consuming process of measuring pelvic dimensions and body composition into a **rapid, fully automated pipeline**. Built for surgical data science and preoperative risk assessment, it integrates seamlessly with pre-trained deep learning models (e.g., [TotalSegmentator](https://github.com/wasserth/TotalSegmentator)) to extract crucial anatomical metrics directly from raw CT scans—eliminating inter-observer variability entirely.
+`ctpelvimetry` turns the manual, ~15-minute-per-scan process of measuring mid-pelvic dimensions and body composition into a **fully automated 2-minute pipeline**. Built for surgical data science, preoperative risk assessment, and large-scale ML training datasets, it integrates with [TotalSegmentator](https://github.com/wasserth/TotalSegmentator) to extract anatomical metrics directly from raw CT scans — eliminating inter-observer variability.
+
+---
+
+## 📑 Contents
+
+- [Quick Start](#-quick-start)
+- [Installation](#-installation)
+- [CLI Usage](#-cli-usage)
+- [Python API](#-python-api)
+- [Output Structure](#-output-structure)
+- [Measured Metrics](#-measured-metrics)
+- [Quality Control](#-quality-control)
+- [Hardware Requirements](#-hardware-requirements)
+- [Body Composition License (Optional)](#-body-composition-license-optional)
+- [Architecture](#-architecture)
+- [Troubleshooting](#-troubleshooting)
+- [Citation](#-citation)
 
 ---
 
 ## 🚀 Quick Start
 
-Get up and running in seconds. 
-
-### Installation
 ```bash
-# Basic install (if you already have segmentations)
+# Install
+pip install "ctpelvimetry[seg]"
+
+# Process a single DICOM folder
+ctpelvimetry pelv \
+  --dicom_dir /path/to/Patient_001 \
+  --patient Patient_001 \
+  --output_root ./output
+
+# Or a directory full of NIfTI files (Medical Decathlon, KiTS, etc.)
+ctpelvimetry pelv \
+  --nifti_root /path/to/niftis \
+  --output_root ./output
+```
+
+You get back a CSV with ISD, inlet/outlet AP, sacral metrics, plus QC images. ~2 minutes per scan on a GPU.
+
+---
+
+## 📦 Installation
+
+```bash
+# Basic — for analysis when you already have segmentations
 pip install ctpelvimetry
 
-# Full install (includes TotalSegmentator for end-to-end automation)
+# Full — includes TotalSegmentator for end-to-end automation
 pip install "ctpelvimetry[seg]"
-````
+```
 
-**That's it for pelvimetry.** Install, run, get measurements. No registration, no tokens.
+Requires **Python 3.10+**.
 
-### 🔑 Optional: Enable Body Composition
+For body composition (VAT/SAT/muscle), one extra step is required — see [Body Composition License](#-body-composition-license-optional). Pelvimetry works without it.
 
-`ctpelvimetry` measures pelvimetry out of the box. To **also** extract body composition (VAT, SAT, skeletal muscle), enable TotalSegmentator's `tissue_types` task with a free academic license:
+---
+
+## 🖥️ CLI Usage
+
+`ctpelvimetry` ships two subcommands:
+
+| Subcommand | Purpose |
+|---|---|
+| `pelv` | Pelvimetry: mid-pelvic dimensions (ISD, inlet/outlet AP, sacrum) |
+| `body-comp` | Body composition: VAT, SAT, skeletal muscle area at L3 and ISD levels |
+
+### `pelv` — Pelvimetry
+
+The `pelv` subcommand has **5 input modes**. Pick the one that matches your data layout:
+
+| Mode | Flags | Use when |
+|---|---|---|
+| **1. Existing seg** | `--seg_folder` (+ `--nifti_path`) | You already have TotalSegmentator output |
+| **2. Single DICOM** | `--dicom_dir` + `--patient` | One patient's DICOM folder on disk |
+| **3. Single NIfTI** | `--nifti_path` + `--patient` | One NIfTI file |
+| **4. DICOM batch** | `--dicom_root` (+ `--start` / `--end`) | Folder of `Patient_001/`, `Patient_002/`, ... |
+| **5. NIfTI batch** | `--nifti_root` (+ optional `--pattern`) | Folder of `*.nii.gz` files (one per patient) |
+
+#### Examples
+
+```bash
+# Mode 1 — analysis only (skip segmentation)
+ctpelvimetry pelv \
+  --seg_folder /path/to/seg \
+  --nifti_path /path/to/ct.nii.gz \
+  --patient Patient_001 \
+  --output_root ./output
+
+# Mode 2 — single patient, full pipeline from DICOM
+ctpelvimetry pelv \
+  --dicom_dir /path/to/Patient_001 \
+  --patient Patient_001 \
+  --output_root ./output
+
+# Mode 3 — single patient, full pipeline from NIfTI
+ctpelvimetry pelv \
+  --nifti_path /path/to/ct.nii.gz \
+  --patient Patient_001 \
+  --output_root ./output
+
+# Mode 4 — batch DICOM (expects ./DICOMs/Patient_001/, ./DICOMs/Patient_002/, ...)
+ctpelvimetry pelv \
+  --dicom_root /path/to/DICOMs \
+  --output_root ./output \
+  --start 1 --end 250
+
+# Mode 5 — batch NIfTI (expects *.nii.gz directly under nifti_root)
+ctpelvimetry pelv \
+  --nifti_root /path/to/niftis \
+  --output_root ./output
+
+# Custom glob pattern (e.g. uncompressed NIfTI, or non-default naming)
+ctpelvimetry pelv \
+  --nifti_root /path/to/niftis \
+  --pattern "case_*_ct.nii" \
+  --output_root ./output
+```
+
+#### Common flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--output_root` | `./pelvimetry_output` | Root directory for all outputs |
+| `--output` | `combined_pelvimetry_report.csv` | Output CSV filename |
+| `--fast` | off | Use TotalSegmentator `--fast` mode (faster, slightly less accurate) |
+| `--no-tissue` | off | Skip the body composition (`tissue_types`) task |
+| `--qc` / `--no-qc` | on | Generate QC images |
+
+Run `ctpelvimetry pelv --help` for the full list.
+
+### `body-comp` — Body Composition
+
+Computes VAT, SAT, and skeletal muscle area at the L3 and mid-ISD levels. Requires pelvimetry to have already run (so it knows where the ISD level is).
+
+```bash
+# Single patient
+ctpelvimetry body-comp \
+  --patient Patient_001 \
+  --seg_root ./output/Segmentation \
+  --nifti_root ./output/NIfTI \
+  --pelvimetry_csv ./output/combined_pelvimetry_report.csv \
+  --output ./output/body_comp_001.csv \
+  --qc
+
+# Batch
+ctpelvimetry body-comp \
+  --seg_root ./output/Segmentation \
+  --nifti_root ./output/NIfTI \
+  --pelvimetry_csv ./output/combined_pelvimetry_report.csv \
+  --output ./output/body_composition_report.csv \
+  --start 1 --end 250 \
+  --qc_root ./output/body_comp_qc
+```
+
+Run `ctpelvimetry body-comp --help` for all flags.
+
+---
+
+## 🐍 Python API
+
+For custom pipelines or integration into existing data-science workflows.
+
+### Public API surface
+
+| Function | Use case |
+|---|---|
+| `run_combined_pelvimetry` | Existing segmentation → measurements |
+| `run_full_pipeline` | DICOM folder → NIfTI → seg → measurements (one patient) |
+| `run_nifti_pipeline` | NIfTI file → seg → measurements (one patient) |
+| `run_pelvimetry_batch` | DICOM batch (parent dir of `Patient_xxx/` folders) |
+| `run_pelvimetry_nifti_batch` | NIfTI batch (directory of `*.nii.gz`) |
+| `process_single_patient` | Body composition for one patient |
+| `PelvicConfig` | Tuneable detection thresholds |
+
+### Single-patient examples
+
+```python
+from ctpelvimetry import (
+    run_combined_pelvimetry,
+    run_full_pipeline,
+    run_nifti_pipeline,
+)
+
+# A. Already have segmentation (fastest path; just measurement + QC)
+result = run_combined_pelvimetry(
+    patient_id="Patient_001",
+    seg_folder="/path/to/segmentation_masks",
+    nifti_path="/path/to/ct.nii.gz",
+    qc_dir="./output/QC",  # optional
+)
+print(f"ISD: {result['ISD_mm']} mm")
+print(f"Inlet AP: {result['Inlet_AP_mm']} mm")
+
+# B. From a DICOM folder (end-to-end)
+result = run_full_pipeline(
+    patient_id="Patient_001",
+    dicom_path="/path/to/Patient_001",
+    output_root="./output",
+    use_fast=False,      # set True for quick previews
+    skip_tissue=False,   # set True to skip body comp
+)
+
+# C. From a NIfTI file (end-to-end, skips DICOM conversion)
+result = run_nifti_pipeline(
+    patient_id="Patient_001",
+    nifti_path="/path/to/ct.nii.gz",
+    output_root="./output",
+)
+```
+
+### Batch examples
+
+```python
+from ctpelvimetry.batch import (
+    run_pelvimetry_batch,
+    run_pelvimetry_nifti_batch,
+)
+
+# DICOM batch — expects /data/DICOMs/Patient_001/, /data/DICOMs/Patient_002/, ...
+df = run_pelvimetry_batch(
+    dicom_root="/data/DICOMs",
+    output_root="./output",
+    output_csv="./output/results.csv",
+    start=1, end=250,
+)
+
+# NIfTI batch — expects /data/niftis/case_001.nii.gz, case_002.nii.gz, ...
+df = run_pelvimetry_nifti_batch(
+    nifti_root="/data/niftis",
+    output_root="./output",
+    output_csv="./output/results.csv",
+    pattern="*.nii.gz",  # default
+    use_fast=False,
+    skip_tissue=False,
+)
+
+# Filter to fully successful patients
+success = df[df["Status"] == "Success"]
+print(success[["Patient_ID", "ISD_mm", "Inlet_AP_mm"]].describe())
+```
+
+Both batch functions return a `pandas.DataFrame` and write a CSV to `output_csv`. Per-patient errors are isolated — one failure won't abort the run.
+
+### Body composition
+
+```python
+from ctpelvimetry import process_single_patient
+
+body_comp = process_single_patient(
+    patient_id="Patient_001",
+    seg_root="./output/Segmentation",
+    nifti_path="./output/NIfTI/Patient_001/Patient_001.nii.gz",
+    pelvimetry_csv="./output/combined_pelvimetry_report.csv",
+    qc_dir="./output/body_comp_qc",  # optional
+)
+print(f"VAT @ L3: {body_comp['L3_VAT_cm2']} cm²")
+print(f"V/S ratio @ L3: {body_comp['L3_VS_ratio']}")
+print(f"SMA @ L3: {body_comp['L3_SMA_cm2']} cm²")
+```
+
+### Custom thresholds
+
+```python
+from ctpelvimetry import run_combined_pelvimetry, PelvicConfig
+
+config = PelvicConfig(
+    rotation_warn_deg=3.0,    # tighter QA than the default 5°
+    tilt_warn_deg=3.0,
+    sacrum_offset_warn_mm=3.0,
+)
+
+result = run_combined_pelvimetry(
+    patient_id="P001",
+    seg_folder="./seg",
+    nifti_path="./ct.nii.gz",
+    config=config,
+)
+```
+
+---
+
+## 📂 Output Structure
+
+After running the pelvimetry pipeline, `--output_root` looks like:
+
+```
+output/
+├── NIfTI/                       # DICOM → NIfTI conversions (DICOM modes only)
+│   └── Patient_001/
+│       └── Patient_001.nii.gz
+├── Segmentation/                # TotalSegmentator masks
+│   └── Patient_001/
+│       ├── hip_left.nii.gz
+│       ├── hip_right.nii.gz
+│       ├── sacrum.nii.gz
+│       ├── femur_left.nii.gz
+│       ├── femur_right.nii.gz
+│       ├── vertebrae_S1.nii.gz
+│       ├── ...
+│       ├── subcutaneous_fat.nii.gz   # only with TOTALSEG_LICENSE_KEY
+│       ├── torso_fat.nii.gz
+│       └── skeletal_muscle.nii.gz
+├── QC/                          # Visual QC images (PNG)
+│   ├── Patient_001_Sagittal_QC.png
+│   └── Patient_001_Extended_QC.png
+└── combined_pelvimetry_report.csv   # The aggregated results
+```
+
+### CSV schema (key columns)
+
+| Column | Type | Description |
+|---|---|---|
+| `Patient_ID` | str | Patient identifier |
+| `Status` | str | `Success`, `Partial_N/6`, `Failure`, or `Error` |
+| `Error_Log` | str | Per-metric error codes (semicolon-separated), if any |
+| `ISD_mm` | float | Inter-Spinous Distance |
+| `Inlet_AP_mm` | float | Pelvic inlet AP diameter |
+| `Outlet_AP_mm` | float | Pelvic outlet AP diameter |
+| `Outlet_Transverse_mm` | float | Intertuberous diameter |
+| `Sacral_Length_mm` | float | Sacral length (promontory → coccygeal apex) |
+| `Sacral_Depth_mm` | float | Maximum sacral concavity depth |
+| `Pelvic_Rotation_deg` | float | Axial rotation (quality flag) |
+| `Pelvic_Tilt_deg` | float | Coronal tilt (quality flag) |
+| `Promontory_x/y/z` | float | RAS world coordinates (mm) of detected landmarks |
+| `Upper_Symphysis_x/y/z` | float | (and similar columns for all detected landmarks) |
+| `CT_NIfTI`, `Seg_*` | str | File paths to inputs/intermediates for traceability |
+
+`Status` semantics:
+
+- **`Success`** — all 6 pelvimetric metrics computed
+- **`Partial_N/6`** — N of 6 metrics computed; the rest in `Error_Log`
+- **`Failure`** — 0 metrics computed (segmentation produced but unusable)
+- **`Fail_NIfTI`** — DICOM → NIfTI conversion failed (DICOM modes only)
+- **`Fail_Seg`** — TotalSegmentator failed to produce required masks
+- **`Fail_NIfTI_Missing`** — input NIfTI file does not exist (NIfTI modes only)
+- **`Error`** — uncaught exception during processing (batch mode only); full message in `Error_Message`
+
+---
+
+## 🔬 Measured Metrics
+
+### Pelvimetry (Mid-Pelvic Workspace)
+
+| Metric | Description |
+|---|---|
+| **ISD** (mm) | Inter-Spinous Distance — narrowest mid-pelvic width, critical for deep pelvic dissection |
+| **Inlet AP** (mm) | Promontory → upper symphysis distance |
+| **Outlet AP** (mm) | Coccygeal apex → lower symphysis distance |
+| **Outlet Transverse** (mm) | Intertuberous diameter (between ischial tuberosities) |
+| **Sacral Length** (mm) | Promontory → coccygeal apex along the sacral curve |
+| **Sacral Depth** (mm) | Maximum concavity depth from the inlet-outlet chord |
+
+### Body Composition (requires license)
+
+| Metric | Description |
+|---|---|
+| **VAT / SAT** (cm²) | Visceral / subcutaneous adipose tissue area |
+| **V/S Ratio** | VAT / SAT ratio — indicator of visceral obesity |
+| **SMA** (cm²) | Skeletal Muscle Area at L3 and mid-pelvis levels |
+
+---
+
+## 👁️ Quality Control
+
+`ctpelvimetry` generates two QC panels per scan so you can spot-check landmark detection visually before trusting the numbers.
+
+![Sagittal QC example](https://raw.githubusercontent.com/odafeng/ctpelvimetry/main/docs/images/qc_example.png)
+*Sagittal QC: sacral length (magenta), inlet AP (green), outlet AP (orange), sacral depth (cyan).*
+
+![Extended QC example](https://raw.githubusercontent.com/odafeng/ctpelvimetry/main/docs/images/qc_extended_example.png)
+*Extended QC: outlet transverse diameter, ISD, and tabular measurement summary.*
+
+The pipeline also writes quality flags to the CSV:
+
+- `Pelvic_Rotation_Flag` / `Pelvic_Tilt_Flag` — `ok`, `warn`, `high` (axial rotation and coronal tilt of the patient on the table)
+- `Sacrum_Offset_Flag` — sacrum-to-symphysis midline offset in mm
+
+These flags don't block measurement but signal when manual review is wise.
+
+---
+
+## ⚙️ Hardware Requirements
+
+End-to-end automation runs deep-learning segmentation. **A GPU is strongly recommended.**
+
+| Setup | Time per scan | Notes |
+|---|---|---|
+| **NVIDIA GPU 8GB+ VRAM** (T4, RTX 3060+, A100) | < 2 min | Recommended. 16GB+ for high-res CTs. |
+| **CPU only** | 10–30+ min | Will work but slow; may OOM on large series |
+| **Google Colab (free T4)** | < 2 min | Easy cloud option for clinical researchers |
+
+If you only run analysis on **pre-existing segmentations** (Mode 1), a standard CPU is fine — no GPU needed.
+
+---
+
+## 🔑 Body Composition License (Optional)
+
+Body composition (VAT/SAT/muscle) requires TotalSegmentator's `tissue_types` task, which needs a free academic license. Pelvimetry works without it.
 
 ```bash
 # 1. Register (free, takes 30 seconds): https://backend.totalsegmentator.com/license-academic/
@@ -35,183 +413,94 @@ pip install "ctpelvimetry[seg]"
 export TOTALSEG_LICENSE_KEY=aca_xxxxxxxxxxxx
 ```
 
-If `TOTALSEG_LICENSE_KEY` is unset, pelvimetry runs normally; body composition is silently skipped.
+If `TOTALSEG_LICENSE_KEY` is unset, the pipeline silently skips body composition and reports pelvimetry only. No errors, no warnings beyond a one-line info message.
 
-> ⚠️ Versions ≤ 1.4.1 shipped with a hard-coded license key. That key has been removed for security and licence-compliance reasons; please register your own.
+> **Note:** Versions ≤ 1.4.1 shipped with a hard-coded license key. That key has been removed (see CHANGELOG); please register your own.
 
-### ⚠️ Hardware Requirements (Important!)
+---
 
-Because the full end-to-end pipeline relies on deep learning models (TotalSegmentator) for 3D image segmentation, **a dedicated GPU is strongly recommended**.
+## 🏗️ Architecture
 
-* **Recommended Setup (for `ctpelvimetry[seg]`)**:
-  * **GPU**: NVIDIA GPU with at least **8GB VRAM** (16GB+ recommended for high-resolution CTs, e.g., NVIDIA T4, RTX 3060/4090, or A100).
-  * **RAM**: 16GB+ System RAM.
-  * **Time**: With a dedicated GPU, a single patient scan takes **< 2 minutes**.
-* **Without a GPU (CPU-only)**:
-  * The pipeline will still run, but segmentation may take **10 to 30+ minutes** per scan, and you risk running out of memory (OOM) on large DICOM series.
-* **Pro Tip for Clinical Researchers**: If you don't have a local GPU workstation, you can easily run the full pipeline in a cloud environment like **Google Colab (using a free T4 GPU)**.
-
-*(Note: If you are only running the basic `ctpelvimetry` on pre-existing segmentations, a standard CPU is perfectly fine.)*
-
-### End-to-End Analysis (CLI)
-
-Go from raw DICOM to structured measurements in one command:
-
-```bash
-ctpelvimetry pelv --dicom_dir /path/to/patient_scan --output_root ./output --qc
 ```
-
-*That's it. The pipeline will handle DICOM-to-NIfTI conversion, segmentation, landmark detection, metric calculation, and QC figure generation automatically.*
-
-### Starting from NIfTI
-
-If your data is already in NIfTI format (e.g. public datasets like the Medical Decathlon or TotalSegmentator benchmark), skip the DICOM conversion step:
-
-```bash
-# Single file
-ctpelvimetry pelv --nifti_path /path/to/ct.nii.gz --patient Patient_001 --output_root ./output --qc
-
-# Whole directory of *.nii.gz files (one per patient)
-ctpelvimetry pelv --nifti_root /path/to/niftis --output_root ./output
-```
-
-The pipeline runs TotalSegmentator on each NIfTI volume, extracts metrics, and (in batch mode) aggregates everything into a single CSV with per-patient error isolation. Patient IDs are derived from filenames: `case_001.nii.gz` → `case_001`.
-
------
-
-## 💡 Why `ctpelvimetry`?
-
-Manual measurement of the mid-pelvic workspace and body composition is tedious and highly subjective.
-
-  * **Clinical Problem**: Measuring Inter-Spinous Distance (ISD) or Visceral Adipose Tissue (VAT) manually takes \~15 minutes per scan and suffers from significant inter-observer variability.
-  * **The `ctpelvimetry` Solution**: Fully automated measurement in **\< 2 minutes**, providing standardized, reproducible data suitable for large-scale surgical data science and machine learning applications.
-
-### Core Advantages
-
-  - ⚡ **Fully Automated**: From raw DICOM to structured CSVs without a single manual click.
-  - 📊 **High-Throughput Batching**: Process hundreds of scans sequentially with built-in failure handling and progress tracking.
-  - 🛡️ **Robust Quality Control**: Automatic detection of pelvic rotation/tilt, and generation of multi-planar QC visualisations for immediate verification.
-  - 🧩 **Modular Design**: Use it as a CLI tool for batch processing or import it as a Python API for custom research pipelines.
-
------
-
-## 🔬 Measured Metrics
-
-`ctpelvimetry` extracts two major categories of surgical metrics:
-
-### 1\. Pelvimetry (Mid-Pelvic Workspace)
-
-| Metric | Description |
-|:---|:---|
-| **ISD** (mm) | Inter-Spinous Distance (Crucial for deep pelvic surgery) |
-| **Inlet AP** (mm) | Promontory → Upper Symphysis |
-| **Outlet AP** (mm) | Coccygeal Apex → Lower Symphysis |
-| **Outlet Transverse** (mm) | Intertuberous diameter |
-| **Sacral Depth & Length** (mm) | Pelvic concavity quantification |
-
-### 2\. Body Composition
-
-| Metric | Description |
-|:---|:---|
-| **VAT / SAT** (cm²) | Visceral / Subcutaneous Adipose Tissue area |
-| **V/S Ratio** | VAT / SAT ratio (Indicator of visceral obesity) |
-| **SMA** (cm²) | Skeletal Muscle Area (Measured at L3 and mid-pelvis levels) |
-
------
-
-## 👁️ Visual Quality Control (QC)
-
-Trust, but verify. `ctpelvimetry` automatically generates detailed QC panels for every scan to ensure landmark accuracy.
-
-*Sagittal QC showing automated landmark detection: sacral length (magenta), inlet AP (green), outlet AP (orange), and sacral depth (cyan).*
-
-*Extended QC panel: (a) outlet transverse diameter, (b) interspinous distance (ISD), and (c) tabular measurement summary.*
-
------
-
-## 💻 Python API Usage
-
-For data scientists building custom pipelines, `ctpelvimetry` provides a clean Python API:
-
-```python
-from ctpelvimetry import (
-    run_combined_pelvimetry,
-    run_nifti_pipeline,
-    process_single_patient,
-)
-
-# 1a. Run Pelvimetry on existing segmentation
-pelv_results = run_combined_pelvimetry(
-    patient_id="Patient_001",
-    seg_folder="/path/to/segmentation_masks",
-    nifti_path="/path/to/ct.nii.gz",
-)
-print(f"Automated ISD: {pelv_results['ISD_mm']} mm")
-
-# 1b. Or start from a NIfTI file (runs TotalSegmentator internally)
-pelv_results = run_nifti_pipeline(
-    patient_id="Patient_001",
-    nifti_path="/path/to/ct.nii.gz",
-    output_root="./output",
-)
-
-# 2. Run Body Composition analysis
-body_comp_results = process_single_patient(
-    patient_id="Patient_001",
-    seg_root="/path/to/seg_root",
-    nifti_path="/path/to/ct.nii.gz",
-    pelvimetry_csv="/path/to/report.csv",
-)
-```
-
-*(See the `batch.py` module for large-scale dataset orchestration.)*
-
------
-
-## 📂 Architecture
-
-```text
 ctpelvimetry/
-├── cli.py               # Unified CLI entry point
-├── pipeline.py          # Core orchestration (DICOM → Metrics)
+├── cli.py               # Unified CLI entry point (pelv + body-comp subcommands)
+├── pipeline.py          # End-to-end orchestration:
+│                        #   - run_combined_pelvimetry  (seg → measurements)
+│                        #   - run_full_pipeline         (DICOM → measurements)
+│                        #   - run_nifti_pipeline        (NIfTI → measurements)
+├── batch.py             # Batch processors with per-patient error isolation:
+│                        #   - run_pelvimetry_batch
+│                        #   - run_pelvimetry_nifti_batch
+│                        #   - run_body_composition_batch
+├── conversion.py        # DICOM → NIfTI conversion
 ├── segmentation.py      # TotalSegmentator integration wrapper
 ├── landmarks.py         # 3D geometric landmark detection
-├── metrics.py           # Pelvimetric calculations (ISD, etc.)
-├── body_composition.py  # Fat/Muscle area quantification
-├── qc.py                # Visual reporting generation
-└── batch.py             # High-throughput batch processing
+├── metrics.py           # Pelvimetric calculations (ISD, AP, sacral, etc.)
+├── body_composition.py  # Fat / muscle area quantification
+├── qc.py                # QC image generation (matplotlib)
+├── io.py                # Mask I/O with canonical (RAS) reorientation
+└── config.py            # PelvicConfig dataclass: tuneable thresholds
 ```
 
------
+---
+
+## 🛠️ Troubleshooting
+
+### `Patient_xxx: Status = Failure, Error_Log = ALL: ISD_NO_HIP_MASK`
+TotalSegmentator didn't produce hip masks. Usually the CT FOV doesn't include the pelvis, or the scan is corrupted. Inspect the input NIfTI in a viewer (3D Slicer, ITK-SNAP).
+
+### `Tissue Types: Requires license`
+You're trying to run body composition without a license. Either set `TOTALSEG_LICENSE_KEY` (see [Body Composition License](#-body-composition-license-optional)) or pass `--no-tissue` to skip explicitly.
+
+### Segmentation is extremely slow
+Either you don't have a GPU or PyTorch isn't seeing it. Verify with:
+```python
+import torch; print(torch.cuda.is_available())
+```
+If `False`, reinstall PyTorch with the CUDA build for your driver.
+
+### `Status = Partial_5/6` with `Sacral_Depth: SACRAL_NO_LANDMARKS`
+Promontory or coccygeal apex wasn't detected. The other 5 metrics are still valid. Check the Sagittal QC PNG.
+
+### Segmentation results look wrong despite no error
+Patient is probably rotated or tilted on the table. Check `Pelvic_Rotation_deg` and `Pelvic_Tilt_deg` columns — the pipeline flags values > 5° (default) as `warn`, and these often indicate unreliable measurement. Tighten the thresholds via `PelvicConfig` if you want stricter automatic flagging.
+
+### CSV `Status` column is missing or empty
+You're probably reading a body-composition CSV (different schema). Pelvimetry results are in `combined_pelvimetry_report.csv`.
+
+---
 
 ## 🤝 Contributing
 
-We welcome contributions from both the surgical and data science communities\!
+PRs welcome from both the surgical and data-science communities. The package follows semantic versioning; tag pushes (`v*`) auto-trigger PyPI publishing via GitHub Actions.
 
-1.  Fork the repository
-2.  Create a feature branch (`git checkout -b feature/amazing-feature`)
-3.  Commit your changes (`git commit -m "Add amazing feature"`)
-4.  Push to the branch (`git push origin feature/amazing-feature`)
-5.  Open a Pull Request
+```bash
+git checkout -b feature/your-feature
+# ... make changes, add tests in tests/
+pytest                            # all should pass
+git commit -am "feat: ..."
+git push origin feature/your-feature
+# Open a PR
+```
 
------
+---
 
 ## 📝 Citation
 
-If you use **`ctpelvimetry`** to facilitate your research, please consider citing our work:
+If `ctpelvimetry` enables your research, please cite:
 
 ```bibtex
-@software{huang2025ctpelvimetry,
+@software{huang2026ctpelvimetry,
   author    = {Huang, Shih-Feng},
   title     = {ctpelvimetry: Automated CT Pelvimetry and Body Composition Analysis},
-  year      = {2025},
-  url       = {[https://github.com/odafeng/ctpelvimetry](https://github.com/odafeng/ctpelvimetry)},
-  version   = {1.1.0}
+  year      = {2026},
+  url       = {https://github.com/odafeng/ctpelvimetry},
+  version   = {1.6.0},
 }
 ```
 
-> *A peer-reviewed manuscript detailing the clinical validation of this pipeline is currently in preparation.*
+> A peer-reviewed manuscript on the clinical validation of this pipeline is in preparation.
 
------
+---
 
-**License**: [Apache License 2.0](https://www.google.com/search?q=LICENSE) | **Author**: Shih-Feng Huang, MD
+**License:** [Apache License 2.0](LICENSE) | **Author:** Shih-Feng Huang, MD ([@odafeng](https://github.com/odafeng))
