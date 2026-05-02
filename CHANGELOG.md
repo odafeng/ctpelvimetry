@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] - 2026-05-02
+
+### Added
+- **`run_nifti_pipeline`** — new public API entry point for NIfTI inputs (NIfTI → Seg → Pelvimetry), skipping the DICOM → NIfTI conversion step. Useful for public datasets distributed in NIfTI format (Medical Decathlon, TotalSegmentator benchmark, etc.)
+- **CLI Mode 4** — `ctpelvimetry pelv --nifti_path <ct.nii.gz> --patient <id> --output_root <dir>` runs the full pipeline starting from a NIfTI file
+
+### Changed
+- `pelv` subcommand help now documents all four input modes (DICOM single, NIfTI single, DICOM batch, existing seg)
+
 ## [1.4.1] - 2026-03-10
 
 ### Fixed

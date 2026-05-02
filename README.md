@@ -46,6 +46,16 @@ ctpelvimetry pelv --dicom_dir /path/to/patient_scan --output_root ./output --qc
 
 *That's it. The pipeline will handle DICOM-to-NIfTI conversion, segmentation, landmark detection, metric calculation, and QC figure generation automatically.*
 
+### Starting from NIfTI
+
+If your data is already in NIfTI format (e.g. public datasets like the Medical Decathlon or TotalSegmentator benchmark), skip the DICOM conversion step:
+
+```bash
+ctpelvimetry pelv --nifti_path /path/to/ct.nii.gz --patient Patient_001 --output_root ./output --qc
+```
+
+The pipeline will run TotalSegmentator on the NIfTI volume directly and proceed with measurement and QC.
+
 -----
 
 ## 💡 Why `ctpelvimetry`?
@@ -103,22 +113,33 @@ Trust, but verify. `ctpelvimetry` automatically generates detailed QC panels for
 For data scientists building custom pipelines, `ctpelvimetry` provides a clean Python API:
 
 ```python
-from ctpelvimetry import run_combined_pelvimetry, process_single_patient
-
-# 1. Run Pelvimetry analysis
-pelv_results = run_combined_pelvimetry(
-    patient_id="Patient_001", 
-    seg_path="/path/to/segmentation_masks", 
-    nifti_path="/path/to/ct.nii.gz"
+from ctpelvimetry import (
+    run_combined_pelvimetry,
+    run_nifti_pipeline,
+    process_single_patient,
 )
-print(f"Automated ISD: {pelv_results['isd_mm']} mm")
+
+# 1a. Run Pelvimetry on existing segmentation
+pelv_results = run_combined_pelvimetry(
+    patient_id="Patient_001",
+    seg_folder="/path/to/segmentation_masks",
+    nifti_path="/path/to/ct.nii.gz",
+)
+print(f"Automated ISD: {pelv_results['ISD_mm']} mm")
+
+# 1b. Or start from a NIfTI file (runs TotalSegmentator internally)
+pelv_results = run_nifti_pipeline(
+    patient_id="Patient_001",
+    nifti_path="/path/to/ct.nii.gz",
+    output_root="./output",
+)
 
 # 2. Run Body Composition analysis
 body_comp_results = process_single_patient(
-    patient_id="Patient_001", 
+    patient_id="Patient_001",
     seg_root="/path/to/seg_root",
-    nifti_path="/path/to/ct.nii.gz", 
-    pelvimetry_csv="/path/to/report.csv"
+    nifti_path="/path/to/ct.nii.gz",
+    pelvimetry_csv="/path/to/report.csv",
 )
 ```
 

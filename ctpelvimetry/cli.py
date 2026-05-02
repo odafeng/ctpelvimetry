@@ -11,7 +11,7 @@ import argparse
 
 import pandas as pd
 
-from .pipeline import run_combined_pelvimetry, run_full_pipeline
+from .pipeline import run_combined_pelvimetry, run_full_pipeline, run_nifti_pipeline
 from .batch import run_pelvimetry_batch, run_body_composition_batch
 from .body_composition import process_single_patient
 
@@ -26,12 +26,15 @@ def _add_pelvimetry_parser(subparsers):
     """
     parser = subparsers.add_parser(
         "pelv",
-        help="Pelvimetry analysis (DICOM → NIfTI → Seg → Measurements)",
+        help="Pelvimetry analysis (DICOM or NIfTI → Seg → Measurements)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 Examples:
   # Single patient (from DICOM)
   ctpelvimetry pelv --dicom_dir /path/to/Patient_001 --output_root ./output --patient Patient_001
+
+  # Single patient (from NIfTI — skips DICOM conversion)
+  ctpelvimetry pelv --nifti_path /path/to/ct.nii.gz --output_root ./output --patient Patient_001
 
   # Batch processing
   ctpelvimetry pelv --dicom_root /path/to/DICOMs --output_root ./output --start 1 --end 250
@@ -188,10 +191,32 @@ def _handle_pelvimetry(args):
             skip_tissue=args.skip_tissue,
         )
 
+    # Mode 4: Single patient from NIfTI (no DICOM conversion needed)
+    elif args.nifti_path and args.patient:
+        if not os.path.isfile(args.nifti_path):
+            print(f"❌ NIfTI file not found: {args.nifti_path}")
+            return
+
+        result = run_nifti_pipeline(
+            args.patient,
+            args.nifti_path,
+            args.output_root,
+            use_fast=args.fast,
+            skip_tissue=args.skip_tissue,
+            generate_qc=args.qc,
+        )
+
+        df = pd.DataFrame([result])
+        output_path = os.path.join(args.output_root, args.output)
+        os.makedirs(args.output_root, exist_ok=True)
+        df.to_csv(output_path, index=False, encoding="utf-8-sig")
+        print(f"\n✅ Saved to: {output_path}")
+
     else:
         print("❌ Please specify an input mode:")
         print("   --seg_folder (existing segmentation)")
         print("   --dicom_dir + --patient (single patient from DICOM)")
+        print("   --nifti_path + --patient (single patient from NIfTI)")
         print("   --dicom_root (batch processing)")
 
 
