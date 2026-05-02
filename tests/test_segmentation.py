@@ -3,22 +3,54 @@
 from unittest.mock import patch, MagicMock
 
 
-from ctpelvimetry.segmentation import setup_license, run_totalsegmentator
+from ctpelvimetry.segmentation import (
+    LICENSE_ENV_VAR,
+    setup_license,
+    run_totalsegmentator,
+)
 
 
 class TestSetupLicense:
 
+    @patch.dict("os.environ", {LICENSE_ENV_VAR: "aca_TESTKEY123"}, clear=False)
     @patch("ctpelvimetry.segmentation.subprocess.run")
-    def test_success(self, mock_run):
+    def test_success_with_env_var(self, mock_run):
+        """When env var is set, subprocess.run should be called with the key."""
         mock_run.return_value = MagicMock(returncode=0)
-        setup_license()  # should not raise
+        setup_license()
         mock_run.assert_called_once()
+        call_args = mock_run.call_args[0][0]
+        # Should be a list (no shell=True), and key must be passed via -l
+        assert isinstance(call_args, list)
+        assert "aca_TESTKEY123" in call_args
+        assert mock_run.call_args[1].get("check") is True
 
+    @patch.dict("os.environ", {LICENSE_ENV_VAR: ""}, clear=False)
+    @patch("ctpelvimetry.segmentation.subprocess.run")
+    def test_unset_env_var_skips(self, mock_run, capsys):
+        """When env var is unset/empty, subprocess should NOT be called."""
+        # Explicitly unset to handle the case where the variable exists in CI
+        import os
+        os.environ.pop(LICENSE_ENV_VAR, None)
+        setup_license()
+        mock_run.assert_not_called()
+        captured = capsys.readouterr()
+        assert LICENSE_ENV_VAR in captured.out
+
+    @patch.dict("os.environ", {LICENSE_ENV_VAR: "aca_TESTKEY123"}, clear=False)
     @patch("ctpelvimetry.segmentation.subprocess.run", side_effect=Exception("fail"))
     def test_failure_prints_warning(self, mock_run, capsys):
         setup_license()
         captured = capsys.readouterr()
         assert "failed" in captured.out.lower() or "⚠" in captured.out
+
+    @patch.dict("os.environ", {LICENSE_ENV_VAR: "aca_TESTKEY123"}, clear=False)
+    @patch("ctpelvimetry.segmentation.subprocess.run", side_effect=FileNotFoundError())
+    def test_command_not_found_prints_install_hint(self, mock_run, capsys):
+        """If totalseg_set_license isn't installed, print a helpful hint."""
+        setup_license()
+        captured = capsys.readouterr()
+        assert "totalseg_set_license" in captured.out
 
 
 class TestRunTotalSegmentator:

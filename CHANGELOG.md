@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Security
+- **Removed hard-coded TotalSegmentator academic license key** from `segmentation.py`. The bundled key was distributed publicly via PyPI, which (a) violated TotalSegmentator's per-user license terms and (b) exposed all users to a single point of revocation. License keys are now read from the `TOTALSEG_LICENSE_KEY` environment variable.
+
+### Changed
+- `setup_license()` now reads the license key from `TOTALSEG_LICENSE_KEY`. If unset, the function prints registration instructions and skips license setup; bones/organs segmentation still works, only `tissue_types` (VAT/SAT/muscle) is unavailable.
+- `subprocess.run` in `setup_license()` no longer uses `shell=True`; arguments are passed as a list to prevent shell-metacharacter injection from the env var.
+
+### Migration
+Users who were relying on the bundled license key must now register their own academic key at https://backend.totalsegmentator.com/license-academic/ and set `TOTALSEG_LICENSE_KEY` before running the pipeline.
+
 ## [1.4.1] - 2026-03-10
 
 ### Fixed

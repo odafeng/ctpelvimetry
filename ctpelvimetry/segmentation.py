@@ -13,19 +13,60 @@ from .config import SUBPROCESS_TIMEOUT_SECONDS
 # License Setup
 # ------------------------------------------------------------------
 
-def setup_license():
-    """Configure the TotalSegmentator academic licence.
+LICENSE_ENV_VAR = "TOTALSEG_LICENSE_KEY"
+LICENSE_REGISTRATION_URL = "https://backend.totalsegmentator.com/license-academic/"
 
-    Runs ``totalseg_set_license`` with the embedded licence key so that
-    the ``tissue_types`` task is available.  A warning is printed if the
-    setup fails, but execution continues.
+
+def setup_license():
+    """Configure the TotalSegmentator academic licence from environment.
+
+    Reads the license key from the ``TOTALSEG_LICENSE_KEY`` environment
+    variable. If the variable is unset, license setup is skipped with an
+    informative message; bones/organs segmentation will still work, but
+    the ``tissue_types`` task (VAT, SAT, skeletal muscle) will be
+    unavailable.
+
+    To obtain a key, register at
+    https://backend.totalsegmentator.com/license-academic/, then set:
+
+    .. code-block:: bash
+
+        export TOTALSEG_LICENSE_KEY=aca_xxxxxxxxxxxx
+
+    Notes
+    -----
+    Earlier versions of this package shipped with a hard-coded academic
+    license key. That key has been removed for security and licence-
+    compliance reasons (academic keys are issued per-user and are not
+    redistributable).
     """
-    license_key = "aca_ARC6SKM960FCBN"
+    license_key = os.environ.get(LICENSE_ENV_VAR)
+    if not license_key:
+        print(
+            f"ℹ️  {LICENSE_ENV_VAR} not set — pelvimetry will run normally; "
+            "body composition (VAT/SAT/muscle) will be skipped."
+        )
+        print("   To enable body composition:")
+        print(f"     1. Register (free, academic) at {LICENSE_REGISTRATION_URL}")
+        print(f"     2. export {LICENSE_ENV_VAR}=aca_xxxxxxxxxxxx")
+        return
+
     print("🔑 Setting up TotalSegmentator license...")
     try:
-        cmd = f"totalseg_set_license -l {license_key}"
-        subprocess.run(cmd, shell=True, check=True, capture_output=True)
+        # Pass the key as a list arg (no shell=True) to avoid
+        # shell-metacharacter injection if the env var is malformed.
+        subprocess.run(
+            ["totalseg_set_license", "-l", license_key],
+            check=True,
+            capture_output=True,
+        )
         print("   ✅ License set successfully.")
+    except FileNotFoundError:
+        print("   ⚠️ 'totalseg_set_license' command not found")
+        print("      (Install TotalSegmentator: pip install 'ctpelvimetry[seg]')")
+    except subprocess.CalledProcessError as e:
+        print(f"   ⚠️ License setup failed (exit {e.returncode})")
+        print("      (tissue_types task might fail without a valid license)")
     except Exception as e:
         print(f"   ⚠️ License setup failed: {e}")
         print("      (tissue_types task might fail without license)")
@@ -145,34 +186,42 @@ def run_totalsegmentator(
         run_command(cmd_default, "Bones & Organs")
 
         if not skip_tissue:
-            # Task 2: Tissue Types (optional, requires license)
-            try:
-                cmd_tissue = [
-                    "TotalSegmentator",
-                    "-i",
-                    nifti_path,
-                    "-o",
-                    output_folder,
-                    "-ta",
-                    "tissue_types",
-                ]
-                run_command(cmd_tissue, "Tissue Types")
-                # Check if output files were actually created
-                tissue_files = [
-                    "torso_fat.nii.gz",
-                    "subcutaneous_fat.nii.gz",
-                    "skeletal_muscle.nii.gz",
-                ]
-                tissue_ok = any(
-                    os.path.exists(os.path.join(output_folder, f)) for f in tissue_files
+            if not os.environ.get("TOTALSEG_LICENSE_KEY"):
+                # Fast-path: no licence set, skip tissue_types cleanly without
+                # invoking the subprocess and surfacing a noisy error.
+                print(
+                    "      ⏭️  Tissue Types skipped "
+                    "(TOTALSEG_LICENSE_KEY not set; pelvimetry only)"
                 )
-                if not tissue_ok:
-                    print(
-                        "      ⚠️ Tissue Types: Requires license "
-                        "(https://backend.totalsegmentator.com/license-academic/)"
+            else:
+                # Task 2: Tissue Types (optional, requires license)
+                try:
+                    cmd_tissue = [
+                        "TotalSegmentator",
+                        "-i",
+                        nifti_path,
+                        "-o",
+                        output_folder,
+                        "-ta",
+                        "tissue_types",
+                    ]
+                    run_command(cmd_tissue, "Tissue Types")
+                    # Check if output files were actually created
+                    tissue_files = [
+                        "torso_fat.nii.gz",
+                        "subcutaneous_fat.nii.gz",
+                        "skeletal_muscle.nii.gz",
+                    ]
+                    tissue_ok = any(
+                        os.path.exists(os.path.join(output_folder, f)) for f in tissue_files
                     )
-            except Exception:
-                print("      ⚠️ Tissue Types skipped (Optional, requires additional license)")
+                    if not tissue_ok:
+                        print(
+                            "      ⚠️ Tissue Types: Requires license "
+                            "(https://backend.totalsegmentator.com/license-academic/)"
+                        )
+                except Exception:
+                    print("      ⚠️ Tissue Types skipped (Optional, requires additional license)")
         else:
             print("      ⏭️  Tissue Types skipped (User requested skip)")
 
