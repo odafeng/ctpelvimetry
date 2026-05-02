@@ -654,3 +654,95 @@ def run_full_pipeline(
             print(f"      {key}: {result[key]} {unit}")
 
     return result
+
+
+# ------------------------------------------------------------------
+# NIfTI Pipeline: NIfTI → Seg → Pelvimetry
+# ------------------------------------------------------------------
+
+def run_nifti_pipeline(
+    patient_id: str,
+    nifti_path: str,
+    output_root: str,
+    use_fast: bool = False,
+    skip_tissue: bool = False,
+    generate_qc: bool = True,
+    config: Optional[PelvicConfig] = None,
+) -> dict:
+    """NIfTI pipeline: NIfTI → segmentations → pelvimetry.
+
+    Use this entry point when the input is already in NIfTI format
+    (e.g. from public datasets such as the Medical Decathlon or
+    TotalSegmentator's own benchmark). Skips the DICOM → NIfTI
+    conversion step performed by :func:`run_full_pipeline`.
+
+    Parameters
+    ----------
+    patient_id : str
+        Patient identifier (used as the segmentation subdirectory name).
+    nifti_path : str
+        Path to the input CT NIfTI file (``.nii`` or ``.nii.gz``).
+    output_root : str
+        Root directory for segmentation and QC outputs.
+    use_fast : bool, optional
+        Use TotalSegmentator ``--fast`` mode (default ``False``).
+    skip_tissue : bool, optional
+        Skip tissue-type segmentation (default ``False``).
+    generate_qc : bool, optional
+        Generate QC figures (default ``True``).
+    config : PelvicConfig or None, optional
+        Detection parameters forwarded to ``run_combined_pelvimetry``.
+
+    Returns
+    -------
+    dict
+        Combined measurement result dictionary with the same schema
+        as :func:`run_combined_pelvimetry`.
+    """
+    patient_id = str(patient_id)
+    print(f"\n{'='*50}")
+    print(f"🔹 Processing (NIfTI input): {patient_id}")
+    print(f"{'='*50}")
+
+    if not os.path.exists(nifti_path):
+        print(f"   ❌ Input NIfTI file not found: {nifti_path}")
+        result: dict = {"Patient_ID": patient_id, "Status": "Fail_NIfTI_Missing"}
+        return _normalise_result(result)
+
+    # Ensure license is configured for tissue_types task
+    setup_license()
+
+    seg_dir = os.path.join(output_root, "Segmentation")
+    qc_dir = os.path.join(output_root, "QC") if generate_qc else None
+
+    os.makedirs(seg_dir, exist_ok=True)
+    if qc_dir:
+        os.makedirs(qc_dir, exist_ok=True)
+
+    result = {"Patient_ID": patient_id}
+
+    # Phase 1: NIfTI → Segmentations
+    seg_folder = run_totalsegmentator(
+        patient_id, nifti_path, seg_dir, use_fast=use_fast, skip_tissue=skip_tissue
+    )
+    if not seg_folder:
+        result["Status"] = "Fail_Seg"
+        return _normalise_result(result)
+
+    # Phase 2: Segmentations → Pelvimetry + QC Figures
+    result = run_combined_pelvimetry(
+        patient_id, seg_folder, nifti_path, qc_dir=qc_dir, config=config
+    )
+
+    # Print summary
+    print("\n   📊 Results:")
+    for key in [
+        "ISD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
+        "Outlet_Transverse_mm", "Outlet_Area_cm2",
+        "Sacral_Length_mm", "Sacral_Depth_mm",
+    ]:
+        if result.get(key) is not None:
+            unit = "cm²" if "cm2" in key else "mm"
+            print(f"      {key}: {result[key]} {unit}")
+
+    return result
