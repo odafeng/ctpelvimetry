@@ -5,13 +5,116 @@ Batch processing for pelvimetry and body composition.
 import os
 import gc
 import traceback
+import warnings
 from collections import Counter
+from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
 
-from .pipeline import run_full_pipeline
+from .pipeline import run_full_pipeline, run_nifti_pipeline
 from .body_composition import process_single_patient
+
+
+# ------------------------------------------------------------------
+# Internal helpers
+# ------------------------------------------------------------------
+
+# Canonical column order for pelvimetry batch output. Shared between
+# DICOM and NIfTI batch entry points so the CSV schema stays consistent.
+_PELVIMETRY_PRIORITY_COLS: list[str] = [
+    "Patient_ID", "Status", "Error_Log",
+    "ISD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
+    "Outlet_Transverse_mm", "Outlet_Area_cm2",
+    "Sacral_Length_mm", "Sacral_Depth_mm",
+    "Promontory_x", "Promontory_y", "Promontory_z",
+    "Upper_Symphysis_x", "Upper_Symphysis_y", "Upper_Symphysis_z",
+    "Lower_Symphysis_x", "Lower_Symphysis_y", "Lower_Symphysis_z",
+    "Sacral_Apex_x", "Sacral_Apex_y", "Sacral_Apex_z",
+    "ISD_L_x", "ISD_L_y", "ISD_L_z",
+    "ISD_R_x", "ISD_R_y", "ISD_R_z",
+    "IT_L_x", "IT_L_y", "IT_L_z",
+    "IT_R_x", "IT_R_y", "IT_R_z",
+    "CT_NIfTI",
+]
+
+_PELVIMETRY_METRICS: list[str] = [
+    "ISD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
+    "Outlet_Transverse_mm", "Sacral_Length_mm", "Sacral_Depth_mm",
+]
+
+
+def _save_and_summarize_pelvimetry_batch(
+    results: list[dict], output_csv: str
+) -> pd.DataFrame:
+    """Aggregate per-patient results, save CSV, print failure summary.
+
+    Used by both ``run_pelvimetry_batch`` (DICOM input) and
+    ``run_pelvimetry_nifti_batch`` (NIfTI input) to keep the output
+    schema and reporting identical regardless of input format.
+
+    Parameters
+    ----------
+    results : list of dict
+        Per-patient result dictionaries (from ``run_full_pipeline``
+        or ``run_nifti_pipeline``).
+    output_csv : str
+        Destination CSV path.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Aggregated results with priority columns ordered first.
+    """
+    df = pd.DataFrame(results)
+
+    existing_cols = [c for c in _PELVIMETRY_PRIORITY_COLS if c in df.columns]
+    other_cols = [c for c in df.columns if c not in _PELVIMETRY_PRIORITY_COLS]
+    df = df[existing_cols + other_cols]
+
+    Path(output_csv).parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(output_csv, index=False, encoding="utf-8-sig")
+    print(f"\n✅ Results saved to: {output_csv}")
+
+    # ---- Failure Summary ----
+    n_total = len(df)
+    n_success = (df["Status"] == "Success").sum() if "Status" in df.columns else 0
+    n_partial = (
+        df["Status"].str.startswith("Partial").sum() if "Status" in df.columns else 0
+    )
+    n_failure = (df["Status"] == "Failure").sum() if "Status" in df.columns else 0
+
+    print(f"\n{'='*50}")
+    print(f"  FAILURE SUMMARY  ({n_total} patients)")
+    print(f"{'='*50}")
+    print(f"  Success : {n_success}")
+    print(f"  Partial : {n_partial}")
+    print(f"  Failure : {n_failure}")
+
+    has_missing = False
+    for m in _PELVIMETRY_METRICS:
+        if m in df.columns:
+            n_miss = df[m].isna().sum()
+            if n_miss > 0:
+                if not has_missing:
+                    print("\n  Missing metrics:")
+                    has_missing = True
+                print(f"    {m:30s} {n_miss:3d}/{n_total} ({100*n_miss/n_total:.0f}%)")
+
+    if "Error_Log" in df.columns:
+        codes: Counter = Counter()
+        for log in df["Error_Log"].dropna():
+            for part in str(log).split("; "):
+                code = part.split(" - ")[0].strip()
+                if code:
+                    codes[code] += 1
+        if codes:
+            print("\n  Top error codes:")
+            for code, count in codes.most_common(10):
+                print(f"    {code:45s} {count:3d}")
+    print(f"{'='*50}\n")
+
+    return df
 
 
 # ------------------------------------------------------------------
@@ -60,7 +163,6 @@ def run_pelvimetry_batch(
 
     print(f"🔬 Found {len(patient_folders)} patients to process")
     if not patient_folders:
-        import warnings
         warnings.warn(
             f"No patient directories found in '{dicom_root}' "
             f"(searched Patient_{start:03d}..Patient_{end:03d}). "
@@ -87,73 +189,94 @@ def run_pelvimetry_batch(
 
         gc.collect()
 
-    # Save to CSV
-    df = pd.DataFrame(results)
+    return _save_and_summarize_pelvimetry_batch(results, output_csv)
 
-    priority_cols = [
-        "Patient_ID", "Status", "Error_Log",
-        "ISD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
-        "Outlet_Transverse_mm", "Outlet_Area_cm2",
-        "Sacral_Length_mm", "Sacral_Depth_mm",
-        "Promontory_x", "Promontory_y", "Promontory_z",
-        "Upper_Symphysis_x", "Upper_Symphysis_y", "Upper_Symphysis_z",
-        "Lower_Symphysis_x", "Lower_Symphysis_y", "Lower_Symphysis_z",
-        "Sacral_Apex_x", "Sacral_Apex_y", "Sacral_Apex_z",
-        "ISD_L_x", "ISD_L_y", "ISD_L_z",
-        "ISD_R_x", "ISD_R_y", "ISD_R_z",
-        "IT_L_x", "IT_L_y", "IT_L_z",
-        "IT_R_x", "IT_R_y", "IT_R_z",
-        "CT_NIfTI",
-    ]
 
-    existing_cols = [c for c in priority_cols if c in df.columns]
-    other_cols = [c for c in df.columns if c not in priority_cols]
-    df = df[existing_cols + other_cols]
+# ------------------------------------------------------------------
+# Pelvimetry batch (NIfTI input)
+# ------------------------------------------------------------------
 
-    df.to_csv(output_csv, index=False, encoding="utf-8-sig")
-    print(f"\n✅ Results saved to: {output_csv}")
+def run_pelvimetry_nifti_batch(
+    nifti_root: str,
+    output_root: str,
+    output_csv: str,
+    pattern: str = "*.nii.gz",
+    use_fast: bool = False,
+    skip_tissue: bool = False,
+) -> pd.DataFrame:
+    """Run pelvimetry batch on a directory of NIfTI files.
 
-    # ---- Failure Summary ----
-    all_metrics = ["ISD_mm", "Inlet_AP_mm", "Outlet_AP_mm",
-                   "Outlet_Transverse_mm", "Sacral_Length_mm", "Sacral_Depth_mm"]
-    n_total = len(df)
-    n_success = (df["Status"] == "Success").sum() if "Status" in df.columns else 0
-    n_partial = df["Status"].str.startswith("Partial").sum() if "Status" in df.columns else 0
-    n_failure = (df["Status"] == "Failure").sum() if "Status" in df.columns else 0
+    Scans *nifti_root* for files matching *pattern* (non-recursive).
+    Each matching file is processed as one patient via
+    :func:`run_nifti_pipeline`. The patient ID is derived from the
+    filename: ``case_001.nii.gz`` becomes ``case_001`` (both ``.nii``
+    and ``.gz`` extensions are stripped).
 
-    print(f"\n{'='*50}")
-    print(f"  FAILURE SUMMARY  ({n_total} patients)")
-    print(f"{'='*50}")
-    print(f"  Success : {n_success}")
-    print(f"  Partial : {n_partial}")
-    print(f"  Failure : {n_failure}")
+    Use this entry point for public datasets distributed in NIfTI
+    format (Medical Decathlon, TotalSegmentator benchmark, KiTS,
+    etc.) — no DICOM directory layout required.
 
-    # Per-metric missing rate
-    has_missing = False
-    for m in all_metrics:
-        if m in df.columns:
-            n_miss = df[m].isna().sum()
-            if n_miss > 0:
-                if not has_missing:
-                    print("\n  Missing metrics:")
-                    has_missing = True
-                print(f"    {m:30s} {n_miss:3d}/{n_total} ({100*n_miss/n_total:.0f}%)")
+    Parameters
+    ----------
+    nifti_root : str
+        Directory containing input ``.nii.gz`` (or ``.nii``) files.
+    output_root : str
+        Root output directory for segmentations and QC.
+    output_csv : str
+        Destination CSV path for aggregated results.
+    pattern : str, optional
+        Glob pattern for matching files (default ``"*.nii.gz"``).
+        Use ``"*.nii"`` for uncompressed NIfTI.
+    use_fast : bool, optional
+        Use TotalSegmentator ``--fast`` mode (default ``False``).
+    skip_tissue : bool, optional
+        Skip tissue-type segmentation (default ``False``).
 
-    # Top error codes
-    if "Error_Log" in df.columns:
-        codes = Counter()
-        for log in df["Error_Log"].dropna():
-            for part in str(log).split("; "):
-                code = part.split(" - ")[0].strip()
-                if code:
-                    codes[code] += 1
-        if codes:
-            print("\n  Top error codes:")
-            for code, count in codes.most_common(10):
-                print(f"    {code:45s} {count:3d}")
-    print(f"{'='*50}\n")
+    Returns
+    -------
+    pandas.DataFrame
+        Aggregated results for all patients with the same column
+        schema as ``run_pelvimetry_batch``.
+    """
+    nifti_files = sorted(Path(nifti_root).glob(pattern))
 
-    return df
+    print(f"🔬 Found {len(nifti_files)} NIfTI files to process")
+    if not nifti_files:
+        warnings.warn(
+            f"No files matching '{pattern}' found in '{nifti_root}'. "
+            "Check the path and pattern.",
+            stacklevel=2,
+        )
+
+    results: list[dict] = []
+    for nifti_path in tqdm(nifti_files, desc="Processing"):
+        # Strip .gz then .nii so case_001.nii.gz -> case_001.nii -> case_001
+        pid = nifti_path.name
+        for ext in (".gz", ".nii"):
+            if pid.endswith(ext):
+                pid = pid[: -len(ext)]
+
+        try:
+            result = run_nifti_pipeline(
+                pid,
+                str(nifti_path),
+                output_root,
+                use_fast=use_fast,
+                skip_tissue=skip_tissue,
+            )
+            results.append(result)
+
+        except Exception as e:
+            error_msg = str(e)
+            print(f"   ❌ {pid}: {error_msg}")
+            traceback.print_exc()
+            results.append(
+                {"Patient_ID": pid, "Status": "Error", "Error_Message": error_msg}
+            )
+
+        gc.collect()
+
+    return _save_and_summarize_pelvimetry_batch(results, output_csv)
 
 
 # ------------------------------------------------------------------

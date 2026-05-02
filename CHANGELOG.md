@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] - 2026-05-02
+
+NIfTI pipeline gets first-class batch processing. Drop a directory of `*.nii.gz` files in and process them all with a single command — no DICOM directory layout, no manual loops.
+
+### Added
+- **`run_pelvimetry_nifti_batch`** — new public API for batch pelvimetry on a directory of NIfTI files. Patient IDs are derived from filenames (e.g. `case_001.nii.gz` → `case_001`). Includes per-patient error isolation, progress bar, failure summary, and the same CSV schema as the DICOM batch.
+- **CLI Mode 5** — `ctpelvimetry pelv --nifti_root /path/to/niftis --output_root ./output` for NIfTI batch processing
+- **`--pattern`** flag — override the default `*.nii.gz` glob (e.g. `--pattern "*.nii"` for uncompressed NIfTI)
+
+### Changed
+- Refactored shared post-loop logic (CSV save, column ordering, failure summary, error code aggregation) out of `run_pelvimetry_batch` into a private `_save_and_summarize_pelvimetry_batch` helper. Both DICOM and NIfTI batch entry points now share the same output schema and reporting code.
+
 ## [1.5.0] - 2026-05-02
 
 ### Added

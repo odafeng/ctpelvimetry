@@ -12,7 +12,11 @@ import argparse
 import pandas as pd
 
 from .pipeline import run_combined_pelvimetry, run_full_pipeline, run_nifti_pipeline
-from .batch import run_pelvimetry_batch, run_body_composition_batch
+from .batch import (
+    run_pelvimetry_batch,
+    run_pelvimetry_nifti_batch,
+    run_body_composition_batch,
+)
 from .body_composition import process_single_patient
 
 
@@ -36,8 +40,11 @@ Examples:
   # Single patient (from NIfTI — skips DICOM conversion)
   ctpelvimetry pelv --nifti_path /path/to/ct.nii.gz --output_root ./output --patient Patient_001
 
-  # Batch processing
+  # Batch processing (DICOM)
   ctpelvimetry pelv --dicom_root /path/to/DICOMs --output_root ./output --start 1 --end 250
+
+  # Batch processing (NIfTI directory — Medical Decathlon, KiTS, etc.)
+  ctpelvimetry pelv --nifti_root /path/to/niftis --output_root ./output
 
   # Analysis only (existing segmentation)
   ctpelvimetry pelv --seg_folder /path/to/seg --nifti_path /path/to/ct.nii.gz --patient Demo --qc
@@ -46,13 +53,17 @@ Examples:
 
     # Input modes
     parser.add_argument("--dicom_root", type=str, default=None,
-                        help="Parent DICOM directory (batch mode)")
+                        help="Parent DICOM directory (DICOM batch mode)")
     parser.add_argument("--dicom_dir", type=str, default=None,
                         help="Single patient DICOM directory")
+    parser.add_argument("--nifti_root", type=str, default=None,
+                        help="Directory of NIfTI files (NIfTI batch mode)")
     parser.add_argument("--seg_folder", type=str, default=None,
                         help="Existing segmentation folder (skip preprocessing)")
     parser.add_argument("--nifti_path", type=str, default=None,
                         help="Existing NIfTI file path")
+    parser.add_argument("--pattern", type=str, default="*.nii.gz",
+                        help="Glob pattern for --nifti_root (default: *.nii.gz)")
 
     # Output
     parser.add_argument("--output_root", type=str, default="./pelvimetry_output",
@@ -212,12 +223,30 @@ def _handle_pelvimetry(args):
         df.to_csv(output_path, index=False, encoding="utf-8-sig")
         print(f"\n✅ Saved to: {output_path}")
 
+    # Mode 5: Batch processing from NIfTI directory
+    elif args.nifti_root:
+        if not os.path.isdir(args.nifti_root):
+            print(f"❌ NIfTI directory not found: {args.nifti_root}")
+            return
+
+        os.makedirs(args.output_root, exist_ok=True)
+        output_path = os.path.join(args.output_root, args.output)
+        run_pelvimetry_nifti_batch(
+            args.nifti_root,
+            args.output_root,
+            output_path,
+            pattern=args.pattern,
+            use_fast=args.fast,
+            skip_tissue=args.skip_tissue,
+        )
+
     else:
         print("❌ Please specify an input mode:")
         print("   --seg_folder (existing segmentation)")
         print("   --dicom_dir + --patient (single patient from DICOM)")
         print("   --nifti_path + --patient (single patient from NIfTI)")
-        print("   --dicom_root (batch processing)")
+        print("   --dicom_root (batch processing from DICOM)")
+        print("   --nifti_root (batch processing from NIfTI directory)")
 
 
 def _handle_body_comp(args):
