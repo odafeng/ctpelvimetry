@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.1] - 2026-05-02
+
+### Documentation
+- **Comprehensive README rewrite.** Restructured into clear sections (Quick Start → Installation → CLI Usage → Python API → Output Structure → Metrics → QC → Hardware → License → Architecture → Troubleshooting → Citation), each with copy-pasteable examples.
+- **Complete CLI reference** — all 5 `pelv` input modes documented in a single overview table, plus the previously undocumented `body-comp` subcommand.
+- **Complete Python API reference** — every public function shown with realistic usage including the new batch APIs (`run_pelvimetry_batch`, `run_pelvimetry_nifti_batch`).
+- **Output Structure section** — directory tree of `--output_root`, full CSV column schema, and all possible `Status` values (`Success`, `Partial_N/6`, `Failure`, `Fail_NIfTI`, `Fail_Seg`, `Fail_NIfTI_Missing`, `Error`).
+- **Troubleshooting section** with diagnostics for the most common failure modes.
+- **Restored QC images** (`docs/images/qc_example.png`, `docs/images/qc_extended_example.png`) using GitHub raw URLs so they render on PyPI as well.
+- Fixed citation: bumped to v1.6.1 / year 2026, fixed broken license link.
+
 ## [1.6.0] - 2026-05-02
 
 NIfTI pipeline gets first-class batch processing. Drop a directory of `*.nii.gz` files in and process them all with a single command — no DICOM directory layout, no manual loops.
