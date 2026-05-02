@@ -6,6 +6,20 @@ import pytest
 
 
 # ------------------------------------------------------------------
+# CLI options
+# ------------------------------------------------------------------
+
+def pytest_addoption(parser):
+    """Register the --update-snapshot flag used by reproducibility tests."""
+    parser.addoption(
+        "--update-snapshot",
+        action="store_true",
+        default=False,
+        help="Regenerate the reproducibility snapshot instead of comparing.",
+    )
+
+
+# ------------------------------------------------------------------
 # Synthetic volume helpers
 # ------------------------------------------------------------------
 
