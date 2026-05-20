@@ -1,13 +1,9 @@
 """Tests for pelvic pose normalization."""
 
 import numpy as np
-import pytest
 from ctpelvimetry.pose import (
     compute_hip_centroids_world,
     compute_correction_angles,
-    build_correction_matrix_voxel,
-    correct_mask,
-    correct_affine,
     normalize_pelvic_pose,
 )
 
