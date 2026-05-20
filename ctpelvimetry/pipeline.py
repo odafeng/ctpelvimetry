@@ -14,6 +14,7 @@ from .config import DEFAULT_PELVIC_CONFIG, PelvicConfig
 from .io import load_mask_canonical, voxel_to_world_ras
 from .conversion import convert_dicom_to_nifti
 from .segmentation import setup_license, run_totalsegmentator
+from .pose import normalize_pelvic_pose
 from .landmarks import (
     compute_midline_x,
     detect_pelvic_orientation,
@@ -129,6 +130,45 @@ def run_combined_pelvimetry(
         return _normalise_result(result)
 
     sx, sy, sz = header.get_zooms()[:3]
+
+    # ========================================
+    # Pelvic Pose Normalization
+    # ========================================
+    try:
+        pose_masks = {
+            "hip_L": hip_L, "hip_R": hip_R,
+            "sacrum": sacrum, "femur_L": femur_L, "femur_R": femur_R,
+            "vert_S1": vert_S1,
+        }
+        corrected_masks, img_affine, pose_info = normalize_pelvic_pose(
+            pose_masks, img_affine, correction_threshold_deg=2.0
+        )
+        if pose_info["applied"]:
+            hip_L = corrected_masks["hip_L"]
+            hip_R = corrected_masks["hip_R"]
+            sacrum = corrected_masks["sacrum"]
+            femur_L = corrected_masks["femur_L"]
+            femur_R = corrected_masks["femur_R"]
+            vert_S1 = corrected_masks["vert_S1"]
+            print(
+                f"      🔄 Pose correction applied: "
+                f"rotation {pose_info['pre_rotation_deg']}° → {pose_info['post_rotation_deg']}°, "
+                f"tilt {pose_info['pre_tilt_deg']}° → {pose_info['post_tilt_deg']}°"
+            )
+        else:
+            print(
+                f"      ✅ Pose within threshold: "
+                f"rotation {pose_info['pre_rotation_deg']}°, "
+                f"tilt {pose_info['pre_tilt_deg']}° (no correction needed)"
+            )
+        result["Pose_Correction_Applied"] = pose_info["applied"]
+        result["Pre_Correction_Rotation_deg"] = pose_info["pre_rotation_deg"]
+        result["Pre_Correction_Tilt_deg"] = pose_info["pre_tilt_deg"]
+        result["Post_Correction_Rotation_deg"] = pose_info["post_rotation_deg"]
+        result["Post_Correction_Tilt_deg"] = pose_info["post_tilt_deg"]
+    except Exception as e:
+        print(f"      ⚠️ Pose correction failed ({e}), proceeding without correction")
+        result["Pose_Correction_Applied"] = False
 
     # Load CT for QC figures
     ct_vol = None
