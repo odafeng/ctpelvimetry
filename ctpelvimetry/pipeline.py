@@ -69,6 +69,7 @@ def run_combined_pelvimetry(
     nifti_path: str,
     qc_dir: Optional[str] = None,
     config: Optional[PelvicConfig] = None,
+    pose_threshold_deg: float = 5.0,
 ) -> dict:
     """Run combined pelvimetry analysis with per-metric error isolation.
 
@@ -141,7 +142,7 @@ def run_combined_pelvimetry(
             "vert_S1": vert_S1,
         }
         corrected_masks, img_affine, pose_info = normalize_pelvic_pose(
-            pose_masks, img_affine, correction_threshold_deg=2.0
+            pose_masks, img_affine, correction_threshold_deg=pose_threshold_deg
         )
         if pose_info["applied"]:
             hip_L = corrected_masks["hip_L"]
