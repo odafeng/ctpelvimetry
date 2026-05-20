@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] - 2026-05-20
+
+### Added
+- **Pelvic pose normalization module** (`pose.py`): automatic correction of axial rotation and coronal tilt using bilateral hip centroids before landmark extraction. Two-step correction (rotation around Z axis, then tilt around Y axis) with nearest-neighbor interpolation to preserve binary mask integrity.
+- New `pose_threshold_deg` parameter in `run_combined_pelvimetry()` (default 5.0°). Correction is applied only when detected rotation or tilt exceeds this threshold.
+- New output columns: `Pose_Correction_Applied`, `Pre_Correction_Rotation_deg`, `Pre_Correction_Tilt_deg`, `Post_Correction_Rotation_deg`, `Post_Correction_Tilt_deg`.
+- 9 unit tests for the pose normalization module (`tests/test_pose.py`).
+
+### Changed
+- Pipeline success rate on internal cohort improved from 199/200 (99.5%) to 200/200 (100%) — all 11 partial failures due to non-standard pelvic positioning were resolved.
+- External validation on CTPelvic1K improved from 131/178 (73.6%) to 150/178 (84.3%) with pose correction enabled.
+
 ## [1.6.1] - 2026-05-02
 
 ### Documentation
