@@ -9,7 +9,7 @@ Public API:
     PelvicConfig              — tuneable detection parameters
 """
 
-__version__ = "1.6.1"
+__version__ = "1.7.0"
 
 __all__ = [
     "run_combined_pelvimetry",
