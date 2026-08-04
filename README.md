@@ -2,11 +2,22 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/ctpelvimetry.svg?color=blue)](https://pypi.org/project/ctpelvimetry/)
 [![Python versions](https://img.shields.io/pypi/pyversions/ctpelvimetry.svg)](https://pypi.org/project/ctpelvimetry/)
+[![CI](https://github.com/odafeng/ctpelvimetry/actions/workflows/ci.yml/badge.svg)](https://github.com/odafeng/ctpelvimetry/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
+<p align="center">
+  <img src=".github/social-preview.png" alt="ctpelvimetry — automated CT pelvimetry and body-composition analysis" width="100%" />
+</p>
 
 > **The first open-source Python package for fully automated CT pelvimetry and body composition analysis.**
 
 `ctpelvimetry` turns the manual, ~15-minute-per-scan process of measuring mid-pelvic dimensions and body composition into a **fully automated 2-minute pipeline**. Built for surgical data science, preoperative risk assessment, and large-scale ML training datasets, it integrates with [TotalSegmentator](https://github.com/wasserth/TotalSegmentator) to extract anatomical metrics directly from raw CT scans — eliminating inter-observer variability.
+
+| Evidence | Link |
+| --- | --- |
+| **Peer-reviewed method** | [Auto-ISD in *IJCARS* (2026)](https://doi.org/10.1007/s11548-026-03606-2) |
+| **Distribution** | [`pip install ctpelvimetry`](https://pypi.org/project/ctpelvimetry/) |
+| **Engineering** | Python API + CLI, automated QC, unit tests, and GitHub Actions |
 
 ---
 
@@ -495,11 +506,11 @@ If `ctpelvimetry` enables your research, please cite:
   title     = {ctpelvimetry: Automated CT Pelvimetry and Body Composition Analysis},
   year      = {2026},
   url       = {https://github.com/odafeng/ctpelvimetry},
-  version   = {1.6.0},
+  version   = {1.7.0},
 }
 ```
 
-> A peer-reviewed manuscript on the clinical validation of this pipeline is in preparation.
+The underlying Auto-ISD method was published in *International Journal of Computer Assisted Radiology and Surgery* ([DOI](https://doi.org/10.1007/s11548-026-03606-2)); this package is the maintained, reusable software implementation. Machine-readable citation metadata are available in [`CITATION.cff`](CITATION.cff).
 
 ---
 

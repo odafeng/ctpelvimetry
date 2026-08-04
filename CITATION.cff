@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite the software and the preferred article below."
+title: "ctpelvimetry: Automated CT Pelvimetry and Body Composition Analysis"
+type: software
+authors:
+  - family-names: Huang
+    given-names: Shih-Feng
+    orcid: "https://orcid.org/0000-0002-8037-4074"
+repository-code: "https://github.com/odafeng/ctpelvimetry"
+url: "https://pypi.org/project/ctpelvimetry/"
+version: 1.7.0
+date-released: 2026-05-20
+license: Apache-2.0
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Huang
+      given-names: Shih-Feng
+    - family-names: Tseng
+      given-names: Hsin-Ping
+    - family-names: Hsu
+      given-names: Chao-Wen
+  title: "A fully automated CT-based pelvimetry pipeline for quantifying mid-pelvic surgical workspace in rectal cancer"
+  journal: "International Journal of Computer Assisted Radiology and Surgery"
+  year: 2026
+  doi: "10.1007/s11548-026-03606-2"

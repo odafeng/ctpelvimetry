@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">ctpelvimetry social preview</title>
+  <desc id="desc">Python package for automated CT pelvimetry and body composition analysis.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071A2B"/>
+      <stop offset="1" stop-color="#0B3147"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#5EEAD4" stroke-opacity="0.05"/>
+    </pattern>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M8 0L0 4L8 8Z" fill="#5EEAD4"/>
+    </marker>
+  </defs>
+  <rect width="1280" height="640" rx="28" fill="url(#bg)"/>
+  <rect width="1280" height="640" rx="28" fill="url(#grid)"/>
+  <rect x="54" y="62" width="8" height="516" rx="4" fill="#2DD4BF"/>
+  <text x="88" y="94" fill="#5EEAD4" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" letter-spacing="3">SURGICAL DATA SCIENCE · PYTHON PACKAGE</text>
+  <text x="86" y="198" fill="#F8FAFC" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="750">ctpelvimetry</text>
+  <text x="88" y="250" fill="#C6D5DF" font-family="Arial, Helvetica, sans-serif" font-size="28">Automated CT pelvimetry</text>
+  <text x="88" y="286" fill="#C6D5DF" font-family="Arial, Helvetica, sans-serif" font-size="28">and body-composition analysis</text>
+  <text x="88" y="332" fill="#8FB2C3" font-family="Arial, Helvetica, sans-serif" font-size="22">Reproducible measurements and QC outputs.</text>
+  <g font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">
+    <rect x="88" y="468" width="148" height="48" rx="24" fill="#123E50" stroke="#2DD4BF"/>
+    <text x="162" y="499" text-anchor="middle" fill="#E6FFFB">PyPI v1.7.0</text>
+    <rect x="252" y="468" width="142" height="48" rx="24" fill="#123E50" stroke="#2DD4BF"/>
+    <text x="323" y="499" text-anchor="middle" fill="#E6FFFB">CLI + API</text>
+    <rect x="410" y="468" width="178" height="48" rx="24" fill="#123E50" stroke="#2DD4BF"/>
+    <text x="499" y="499" text-anchor="middle" fill="#E6FFFB">Automated QC</text>
+  </g>
+  <text x="88" y="566" fill="#6E93A7" font-family="Arial, Helvetica, sans-serif" font-size="18">Shih-Feng Huang, MD · odafeng/ctpelvimetry</text>
+  <g transform="translate(872 318)">
+    <circle r="220" fill="#0D2B3D" stroke="#2DD4BF" stroke-width="3"/>
+    <circle r="184" fill="#102436" stroke="#8FB2C3" stroke-opacity="0.45" stroke-width="2"/>
+    <ellipse rx="106" ry="136" fill="#162F42" stroke="#5EEAD4" stroke-opacity="0.35" stroke-width="2"/>
+    <path d="M-156-66C-204-24-192 72-124 132L-72 82C-116 40-118-12-82-48Z" fill="#D7E3E9" opacity="0.82"/>
+    <path d="M156-66C204-24 192 72 124 132L72 82C116 40 118-12 82-48Z" fill="#D7E3E9" opacity="0.82"/>
+    <path d="M-44-146C-12-174 12-174 44-146L28-72H-28Z" fill="#9DB5C2" opacity="0.72"/>
+    <line x1="-104" y1="28" x2="104" y2="28" stroke="#5EEAD4" stroke-width="4" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <circle cx="-104" cy="28" r="7" fill="#F8FAFC"/>
+    <circle cx="104" cy="28" r="7" fill="#F8FAFC"/>
+    <rect x="-66" y="48" width="132" height="42" rx="21" fill="#071A2B" stroke="#2DD4BF"/>
+    <text y="76" text-anchor="middle" fill="#E6FFFB" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700">ISD · 3D geometry</text>
+  </g>
+</svg>
